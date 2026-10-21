@@ -48,8 +48,7 @@ def snapshot(now: datetime) -> dict:
         "licence": "CC BY 4.0, National Energy System Operator (NESO)",
         "fetched_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "periods": [
-            {"from": d["from"], "to": d["to"], "forecast": d["intensity"]["forecast"]}
-            for d in data
+            {"from": d["from"], "to": d["to"], "forecast": d["intensity"]["forecast"]} for d in data
         ],
     }
 

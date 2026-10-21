@@ -11,6 +11,9 @@ task:
   # current run). It was available at the issue time only if that run was published by then:
   # lead N is used for target t only when t - 24*N hours <= issue time - this delay.
   weather_availability_delay_hours: 6
+  # The actual value of a half hour is published at its end; allow another 30 minutes, so at
+  # the issue time the last value used is the half hour that started an hour earlier.
+  actual_delay_minutes: 30
 
 data:
   raw_dir: data/raw
@@ -19,3 +22,14 @@ data:
   intensity_start: "2018-01-01"
   # Weather forecasts at fixed lead times: settings in weather.json (shared with archive.py).
   weather: configs/weather.json
+
+# Evaluation, fixed before any model was trained (2026-10-21). Rolling origin by month: for
+# each month of target days, train on every issue day whose target day ended before the first
+# issue time of that month, then forecast the month.
+# - development: all design choices (features, model settings) are made on these months only;
+# - final test: scored once, when the design is frozen, like a held-out test set;
+# - live: from 2026-10-22, against NESO's day-ahead forecasts archived by archive.yml.
+evaluation:
+  development_months: ["2024-10", "2025-12"]   # first and last month of target days
+  final_test_months: ["2026-01", "2026-09"]
+  metric: mae   # mean absolute error, gCO2/kWh

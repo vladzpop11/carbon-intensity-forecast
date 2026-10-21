@@ -33,3 +33,24 @@ evaluation:
   development_months: ["2024-10", "2025-12"]   # first and last month of target days
   final_test_months: ["2026-01", "2026-09"]
   metric: mae   # mean absolute error, gCO2/kWh
+
+# The model, set before the first backtest (2026-10-21), from common LightGBM defaults for a
+# few tens of thousands of rows; any change is made on development months only.
+model:
+  kind: lightgbm
+  params:
+    objective: regression
+    n_estimators: 600
+    learning_rate: 0.03
+    num_leaves: 31
+    min_child_samples: 40
+    subsample: 0.8
+    subsample_freq: 1
+    colsample_bytree: 0.8
+    reg_lambda: 1.0
+    random_state: 0
+    n_jobs: 2
+    verbose: -1
+# Baselines, all known at the issue time: the same half hour on the latest day it is known
+# (the issue day for early slots, else the day before), and a week before the target.
+baselines: [same_time_latest, same_time_week_before]

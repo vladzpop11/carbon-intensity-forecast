@@ -9,7 +9,17 @@ authors = [
 requires-python = ">=3.12,<3.13"
 license = "MIT"
 license-files = ["LICENSE"]
-dependencies = []
+dependencies = [
+    "httpx>=0.28.1",
+    "lightgbm>=4.7.0",
+    "mlforecast>=1.1.0",
+    # mlforecast 1.1 requires pandas < 3, and pandas 2.3 predates NumPy 2.5, which deprecates
+    # how pandas builds timedeltas (a warning now, an error later).
+    "numpy>=2,<2.5",
+    "pandas>=2.3.3,<3",
+    "pandera>=0.34.1",
+    "pyyaml>=6.0.3",
+]
 
 [build-system]
 requires = ["uv_build>=0.13.1,<0.14.0"]

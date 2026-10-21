@@ -1,5 +1,6 @@
 # Saves NESO's published day-ahead carbon intensity forecast every day, to the `archive`
-# branch (archive/neso/YYYY/MM/YYYY-MM-DD.json). The Carbon Intensity API only keeps the
+# branch (archive/{neso,weather}/YYYY/MM/YYYY-MM-DD.json), with the weather forecasts the
+# model uses. The Carbon Intensity API only keeps the
 # latest revision of each forecast, so the day-ahead one has to be saved when it is issued:
 # it is the benchmark the project's own day-ahead model is scored against.
 # GitHub may start scheduled runs late; each file records the time it was read, and the
@@ -40,7 +41,7 @@ jobs:
           fi
 
       - name: Read today's forecast
-        run: PYTHONPATH=code/src python3 -m carbon_intensity_forecast.archive archive/neso
+        run: PYTHONPATH=code/src python3 -m carbon_intensity_forecast.archive archive
 
       - name: Commit it
         env:

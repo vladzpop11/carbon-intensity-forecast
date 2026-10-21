@@ -1,0 +1,21 @@
+# Carbon intensity forecast: data, task and pipeline settings.
+
+# The task: every day at the issue time (UTC), forecast the 48 half hours of the next day,
+# using only what was known at that time.
+task:
+  issue_hour_utc: 9        # NESO's forecast is archived at about this time too (archive.yml)
+  horizon_half_hours: 48   # the next day, 00:00-23:30 UTC
+  # Weather inputs. Open-Meteo's previous_dayN for a valid time t is the latest model run made
+  # at least 24*N hours before t, so its final value comes from a run made about 24*N hours
+  # before t (observed 2026-10-21: for hours more than 24 hours ahead, previous_day1 equals the
+  # current run). It was available at the issue time only if that run was published by then:
+  # lead N is used for target t only when t - 24*N hours <= issue time - this delay.
+  weather_availability_delay_hours: 6
+
+data:
+  raw_dir: data/raw
+  # Carbon Intensity API (NESO), CC BY 4.0: national actual and latest forecast.
+  intensity_api: https://api.carbonintensity.org.uk
+  intensity_start: "2018-01-01"
+  # Weather forecasts at fixed lead times: settings in weather.json (shared with archive.py).
+  weather: configs/weather.json

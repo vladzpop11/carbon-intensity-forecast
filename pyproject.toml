@@ -1,0 +1,30 @@
+[project]
+name = "carbon-intensity-forecast"
+version = "0.1.0"
+description = "Day-ahead forecasts of Great Britain's grid carbon intensity, scored live against the operator's own forecast: an end-to-end MLOps pipeline"
+readme = "README.md"
+authors = [
+    { name = "Vladzpop", email = "291580488+vladzpop11@users.noreply.github.com" }
+]
+requires-python = ">=3.12,<3.13"
+license = "MIT"
+license-files = ["LICENSE"]
+dependencies = []
+
+[build-system]
+requires = ["uv_build>=0.13.1,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = ["pre-commit>=4.7.0", "pytest>=9.1.1", "ruff>=0.17.1"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

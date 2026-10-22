@@ -29,7 +29,8 @@ def provenance() -> dict:
         return done.stdout.strip()
 
     commit = git("rev-parse", "HEAD")
-    dirty = git("status", "--porcelain", "--untracked-files=no")
+    # The DVC pointer changes with every pipeline run; the data version is data_md5.
+    dirty = git("status", "--porcelain", "--untracked-files=no", "--", ".", ":!data/raw.dvc")
     data = yaml.safe_load(project_path("data/raw.dvc").read_text())["outs"][0]["md5"]
     return {"git_commit": commit, "git_dirty": str(bool(dirty)), "data_md5": data}
 

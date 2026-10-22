@@ -1,8 +1,11 @@
-.PHONY: help setup test data data-push data-pull backtest experiments train registry rollback promote up down
+.PHONY: help setup test data data-push data-pull backtest experiments train registry rollback promote flow up down
 
 # MLflow sends usage telemetry by default; this project turns it off.
 export MLFLOW_DISABLE_TELEMETRY := true
 export MLFLOW_DISABLE_AGENT_HINT := 1
+
+# Prefect's temporary local server needs about 23 s to start on this Mac (default limit 20 s).
+export PREFECT_SERVER_EPHEMERAL_STARTUP_TIMEOUT_SECONDS := 120
 
 # DagsHub credentials for DVC come from .env (never committed): DAGSHUB_USER, DAGSHUB_TOKEN.
 # DagsHub's S3 endpoint takes the token as both key and secret.
@@ -47,6 +50,9 @@ rollback:  ## Move the champion alias back to the version it replaced
 
 promote:  ## Make VERSION the champion by hand (recorded on the version): make promote VERSION=3
 	uv run python -m carbon_intensity_forecast.registry promote $(VERSION)
+
+flow:  ## The whole pipeline as a Prefect flow: ingest, validate, version, train, register
+	uv run python -m carbon_intensity_forecast.flows
 
 up:  ## Start the local stack (MLflow on http://127.0.0.1:5050)
 	docker compose up -d --wait

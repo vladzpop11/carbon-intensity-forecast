@@ -378,6 +378,39 @@
       "options": {
         "colorMode": "background"
       }
+    },
+    {
+      "id": 11,
+      "type": "table",
+      "title": "Days not scored (actual values still missing 2 days later)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "monitoring"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 12,
+        "h": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "monitoring"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "select target_day, missing_half_hours from unscored_days order by target_day desc limit 20"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
     }
   ]
 }

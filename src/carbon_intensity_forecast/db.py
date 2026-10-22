@@ -4,6 +4,7 @@
   day-ahead forecast, and the baseline.
 - actuals: the actual value of each half hour.
 - daily_scores: MAE per target day and method, on the half hours every method covers.
+- unscored_days: target days still missing actual values two days after they ended.
 - drift: one row per monitoring run.
 - decisions: what each monitoring run decided about retraining, and why.
 """
@@ -35,6 +36,11 @@ DAILY_SCORES = sa.Table(
     sa.Column("method", sa.Text, primary_key=True),
     sa.Column("mae", sa.Float, nullable=False),
     sa.Column("half_hours", sa.Integer, nullable=False),
+)  # fmt: skip
+UNSCORED = sa.Table(
+    "unscored_days", METADATA,
+    sa.Column("target_day", sa.Date, primary_key=True),
+    sa.Column("missing_half_hours", sa.Integer, nullable=False),
 )  # fmt: skip
 DRIFT = sa.Table(
     "drift", METADATA,

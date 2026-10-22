@@ -171,3 +171,16 @@ def test_neso_read_late_is_kept_apart(engine, read_at, method) -> None:
     monitor.neso(engine, client, CFG)
     stored = db.read(engine, "select distinct method from forecasts where method like 'neso%'")
     assert list(stored["method"]) == [method]
+
+
+def test_a_day_the_source_never_completes_is_reported(engine, monkeypatch) -> None:
+    put_forecasts(engine, "2026-11-01", {"model": 110.0, "baseline": 150.0})
+    times = pd.date_range("2026-11-01", periods=46, freq="30min", tz="UTC")  # 2 never published
+    monkeypatch.setattr(
+        monitor,
+        "fetch_intensity",
+        lambda *a: pd.DataFrame({"period_start": times, "actual": 100.0}),
+    )
+    monitor.score(engine, None, CFG, NOW)  # 19 days later
+    unscored = db.read(engine, "select target_day, missing_half_hours from unscored_days")
+    assert unscored["missing_half_hours"].tolist() == [2]

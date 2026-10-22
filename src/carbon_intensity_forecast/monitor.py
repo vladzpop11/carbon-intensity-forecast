@@ -29,6 +29,8 @@ from carbon_intensity_forecast.ingest import Client, fetch_intensity
 from carbon_intensity_forecast.schemas import INTENSITY_LIMITS, ContractError, clean
 
 DAY = pd.Timedelta("1D")
+# A target day still missing actual values this long after it ended is reported as unscored.
+UNSCORED_AFTER = pd.Timedelta("2D")
 
 
 def utc(value) -> pd.Timestamp:
@@ -143,9 +145,12 @@ def score(e, client: httpx.Client, cfg: dict, now: datetime) -> pd.DataFrame:
     joined["target_day"] = pd.to_datetime(joined["target_time"], utc=True).dt.date
     wide = joined.pivot_table(index=["target_day", "target_time"], columns="method",
                               values=["value", "actual"])  # fmt: skip
-    rows = []
+    rows, unscored = [], []
+    grace_end = (pd.Timestamp(now).tz_convert("UTC") - UNSCORED_AFTER).date()
     for day, part in wide.groupby(level="target_day"):
-        if len(part) < 48:  # the day is not complete yet
+        if len(part) < 48:  # the day is not complete yet, or the source has gaps
+            if day < grace_end:
+                unscored.append({"target_day": day, "missing_half_hours": 48 - len(part)})
             continue
         values = part["value"].dropna(axis=1, how="all").dropna()  # methods present that day
         if values.empty:
@@ -156,6 +161,7 @@ def score(e, client: httpx.Client, cfg: dict, now: datetime) -> pd.DataFrame:
                          "mae": float((values[method] - actual).abs().mean())})  # fmt: skip
     scores = pd.DataFrame(rows)
     db.replace(e, db.DAILY_SCORES, scores)
+    db.replace(e, db.UNSCORED, pd.DataFrame(unscored))
     return scores
 
 

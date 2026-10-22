@@ -106,6 +106,22 @@ jobs:
 
       - run: docker build -t carbon-forecast-api:dev .
 
+      # The API image holds the runtime only: none of the pipeline or development tools.
+      - name: Check what the image contains
+        run: |
+          found=$(docker run --rm --entrypoint sh carbon-forecast-api:dev -c \
+            'ls /app/.venv/lib/python3.12/site-packages; command -v pip || true' \
+            | grep -iE "^(prefect|dvc|evidently|sqlalchemy|pytest|ruff|locust|sklearn)|/pip$" || true)
+          if [ -n "$found" ]; then echo "::error::not runtime: $found"; exit 1; fi
+
+      # Known vulnerabilities with a fix in the image's Debian and Python packages.
+      - name: Scan the image (Trivy)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:0.76.0@sha256:2416d1f74045b57274df1a340eee6b510cacd73c66a6ccb8da092b117eb7d222 \
+            image --quiet --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
+            carbon-forecast-api:dev
+
       - name: Smoke test the image (/health, then a live /forecast)
         run: |
           docker run -d --name api -p 127.0.0.1:8000:8000 carbon-forecast-api:dev

@@ -5,7 +5,8 @@ ARG UV_IMAGE=ghcr.io/astral-sh/uv:0.13.1@sha256:4a1f3666816dafadd20ceb71eac9a7d5
 
 FROM ${UV_IMAGE} AS uv
 
-# --- build stage: runtime dependencies only (no DVC, Prefect or test tools) ---------
+# --- build stage: runtime dependencies only: no dependency group (the pipeline and dev
+# groups hold DVC, Prefect, Evidently and the test tools) -----------------------------
 FROM ${PYTHON_IMAGE} AS build
 COPY --from=uv /uv /usr/local/bin/uv
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
@@ -14,12 +15,12 @@ WORKDIR /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --locked --no-dev --no-install-project
+    uv sync --locked --no-default-groups --no-install-project
 
 COPY pyproject.toml uv.lock README.md LICENSE ./
 COPY src ./src
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-dev
+    uv sync --locked --no-default-groups
 
 # --- pipeline stage (compose `scheduler`): the daily Prefect flow --------------------
 # The pipeline dependency group (Prefect, DVC, Evidently; no test tools), git for

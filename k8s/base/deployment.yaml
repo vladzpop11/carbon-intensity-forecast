@@ -1,0 +1,49 @@
+# The forecast API, serving the champion exported into the image (the cluster does not
+# reach the MLflow server).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: forecast-api
+  namespace: carbon-forecast
+  labels: {app: forecast-api}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: forecast-api}
+  template:
+    metadata:
+      labels: {app: forecast-api}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: api
+          image: forecast-api   # set by the overlay
+          imagePullPolicy: IfNotPresent
+          ports:
+            - {name: http, containerPort: 8000}
+          env:
+            - {name: MODEL_URI, value: /app/models/champion}
+            - {name: HOME, value: /tmp}
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: "1", memory: 512Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - {name: tmp, emptyDir: {}}

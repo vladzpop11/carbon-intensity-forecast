@@ -1,4 +1,4 @@
-.PHONY: help setup test data data-push data-pull backtest experiments train registry rollback promote flow export-model serve up down
+.PHONY: help setup test data data-push data-pull backtest experiments train registry rollback promote flow export-model serve up down kind-up kind-down
 
 # MLflow sends usage telemetry by default; this project turns it off.
 export MLFLOW_DISABLE_TELEMETRY := true
@@ -66,3 +66,13 @@ export-model:  ## Export the champion from MLflow to models/champion and track i
 
 serve:  ## Run the API locally (model from the registry; needs `make up`)
 	MLFLOW_TRACKING_URI=http://127.0.0.1:5050 uv run uvicorn carbon_intensity_forecast.api:app --port 8000
+
+kind-up:  ## Local Kubernetes: create a kind cluster, load the API image, deploy (stop compose first: 4 GB)
+	kind create cluster --name carbon --config k8s/kind-config.yaml --wait 180s
+	docker build --platform=linux/amd64 -t carbon-forecast-api:dev .
+	kind load docker-image carbon-forecast-api:dev --name carbon
+	kubectl apply -k k8s/overlays/kind
+	kubectl -n carbon-forecast rollout status deployment/forecast-api --timeout=240s
+
+kind-down:  ## Delete the kind cluster
+	kind delete cluster --name carbon

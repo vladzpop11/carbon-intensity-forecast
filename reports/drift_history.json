@@ -1,0 +1,171 @@
+{
+  "summary": {
+    "same_days_last_year_default": {
+      "mean_share": 0.7896825396825397,
+      "months_flagged": 18,
+      "months": 18
+    },
+    "same_days_last_year_psi": {
+      "mean_share": 0.541005291005291,
+      "months_flagged": 13,
+      "months": 18
+    },
+    "same_season_default": {
+      "mean_share": 0.8716931216931216,
+      "months_flagged": 18,
+      "months": 18
+    },
+    "same_season_psi": {
+      "mean_share": 0.4788359788359789,
+      "months_flagged": 9,
+      "months": 18
+    }
+  },
+  "correlation_same_season_psi_vs_mae": -0.16450857728038779,
+  "windows": [
+    {
+      "window_end": "2025-04-30",
+      "model_mae": null,
+      "same_days_last_year_default": 1.0,
+      "same_days_last_year_psi": 0.7142857142857143,
+      "same_season_default": 0.9761904761904762,
+      "same_season_psi": 0.5476190476190477
+    },
+    {
+      "window_end": "2025-05-31",
+      "model_mae": null,
+      "same_days_last_year_default": 0.9285714285714286,
+      "same_days_last_year_psi": 0.5476190476190477,
+      "same_season_default": 0.8809523809523809,
+      "same_season_psi": 0.35714285714285715
+    },
+    {
+      "window_end": "2025-06-30",
+      "model_mae": null,
+      "same_days_last_year_default": 0.7142857142857143,
+      "same_days_last_year_psi": 0.5238095238095238,
+      "same_season_default": 0.8571428571428571,
+      "same_season_psi": 0.42857142857142855
+    },
+    {
+      "window_end": "2025-07-31",
+      "model_mae": null,
+      "same_days_last_year_default": 0.7857142857142857,
+      "same_days_last_year_psi": 0.42857142857142855,
+      "same_season_default": 0.8095238095238095,
+      "same_season_psi": 0.6428571428571429
+    },
+    {
+      "window_end": "2025-08-31",
+      "model_mae": null,
+      "same_days_last_year_default": 0.7619047619047619,
+      "same_days_last_year_psi": 0.6428571428571429,
+      "same_season_default": 0.9047619047619048,
+      "same_season_psi": 0.5
+    },
+    {
+      "window_end": "2025-09-30",
+      "model_mae": null,
+      "same_days_last_year_default": 0.7142857142857143,
+      "same_days_last_year_psi": 0.38095238095238093,
+      "same_season_default": 0.6904761904761905,
+      "same_season_psi": 0.3333333333333333
+    },
+    {
+      "window_end": "2025-10-31",
+      "model_mae": null,
+      "same_days_last_year_default": 0.7857142857142857,
+      "same_days_last_year_psi": 0.5714285714285714,
+      "same_season_default": 0.8095238095238095,
+      "same_season_psi": 0.6428571428571429
+    },
+    {
+      "window_end": "2025-11-30",
+      "model_mae": null,
+      "same_days_last_year_default": 0.7380952380952381,
+      "same_days_last_year_psi": 0.6428571428571429,
+      "same_season_default": 0.9523809523809523,
+      "same_season_psi": 0.5
+    },
+    {
+      "window_end": "2025-12-31",
+      "model_mae": null,
+      "same_days_last_year_default": 0.8571428571428571,
+      "same_days_last_year_psi": 0.6904761904761905,
+      "same_season_default": 0.9523809523809523,
+      "same_season_psi": 0.6428571428571429
+    },
+    {
+      "window_end": "2026-01-31",
+      "model_mae": 24.382538956140262,
+      "same_days_last_year_default": 0.8571428571428571,
+      "same_days_last_year_psi": 0.6904761904761905,
+      "same_season_default": 1.0,
+      "same_season_psi": 0.5
+    },
+    {
+      "window_end": "2026-02-28",
+      "model_mae": 19.92997927987152,
+      "same_days_last_year_default": 0.9285714285714286,
+      "same_days_last_year_psi": 0.6190476190476191,
+      "same_season_default": 1.0,
+      "same_season_psi": 0.6904761904761905
+    },
+    {
+      "window_end": "2026-03-31",
+      "model_mae": 19.0787565111615,
+      "same_days_last_year_default": 0.9047619047619048,
+      "same_days_last_year_psi": 0.6666666666666666,
+      "same_season_default": 0.8571428571428571,
+      "same_season_psi": 0.42857142857142855
+    },
+    {
+      "window_end": "2026-04-30",
+      "model_mae": 19.990712037433124,
+      "same_days_last_year_default": 0.7142857142857143,
+      "same_days_last_year_psi": 0.5238095238095238,
+      "same_season_default": 0.7857142857142857,
+      "same_season_psi": 0.2857142857142857
+    },
+    {
+      "window_end": "2026-05-31",
+      "model_mae": 20.65019091011131,
+      "same_days_last_year_default": 0.7619047619047619,
+      "same_days_last_year_psi": 0.5476190476190477,
+      "same_season_default": 0.7857142857142857,
+      "same_season_psi": 0.3333333333333333
+    },
+    {
+      "window_end": "2026-06-30",
+      "model_mae": 29.522606058029016,
+      "same_days_last_year_default": 0.5952380952380952,
+      "same_days_last_year_psi": 0.30952380952380953,
+      "same_season_default": 0.8333333333333334,
+      "same_season_psi": 0.38095238095238093
+    },
+    {
+      "window_end": "2026-07-31",
+      "model_mae": 18.85919773715073,
+      "same_days_last_year_default": 0.7857142857142857,
+      "same_days_last_year_psi": 0.42857142857142855,
+      "same_season_default": 0.9523809523809523,
+      "same_season_psi": 0.5238095238095238
+    },
+    {
+      "window_end": "2026-08-31",
+      "model_mae": 19.84678337050797,
+      "same_days_last_year_default": 0.6904761904761905,
+      "same_days_last_year_psi": 0.30952380952380953,
+      "same_season_default": 0.8809523809523809,
+      "same_season_psi": 0.42857142857142855
+    },
+    {
+      "window_end": "2026-09-30",
+      "model_mae": 17.82694693020846,
+      "same_days_last_year_default": 0.6904761904761905,
+      "same_days_last_year_psi": 0.5,
+      "same_season_default": 0.7619047619047619,
+      "same_season_psi": 0.4523809523809524
+    }
+  ]
+}

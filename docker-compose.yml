@@ -32,6 +32,25 @@ services:
       start_period: 60s
     restart: unless-stopped
 
+  # Monitoring store: live forecasts, NESO's archived forecasts, scores and drift, read by
+  # Grafana. Local only (bound to 127.0.0.1).
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: forecast
+      POSTGRES_PASSWORD: forecast
+      POSTGRES_DB: forecast
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U forecast -d forecast"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
   # The forecast API, serving the registry's champion (reloaded when the alias moves).
   api:
     build: .
@@ -80,6 +99,7 @@ services:
     restart: unless-stopped
 
 volumes:
+  postgres-data:
   mlflow-data:
   prometheus-data:
   grafana-data:

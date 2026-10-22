@@ -31,12 +31,15 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "dvc[s3]>=3.67",
+    "evidently>=0.7.23,<0.8",
     "httpx2>=2.16.0",
     "pre-commit>=4.7.0",
     "prefect>=3.9,<3.10",
+    "psycopg[binary]>=3.2",
     "pytest>=9.1.1",
     "ruff>=0.17.1",
     "scikit-learn>=1.9",
+    "sqlalchemy>=2",
 ]
 
 [tool.ruff]

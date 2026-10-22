@@ -72,3 +72,18 @@ experiments:
 
 mlflow:
   tracking_uri: http://127.0.0.1:5050   # the compose service; MLFLOW_TRACKING_URI overrides it
+
+# Production training and promotion (make train), fixed before the first run (2026-10-22).
+# Each run trains an evaluation twin on data up to `holdout_days` before the last known day,
+# forecasts those days, and checks the gates on them. If they pass, the same setup is refit
+# on all data and becomes the registered champion (MLflow alias), with the gate results as
+# tags. A champion trained before the holdout window starts sees those days as new too.
+registry:
+  model_name: carbon-intensity-day-ahead
+  holdout_days: 28
+  gates:
+    # 1. Beat the best simple rule by a clear margin (development skill was 55%).
+    min_skill_vs_baseline: 0.30
+    baseline: same_time_latest
+    # 2. Strictly lower MAE than the current champion on the same holdout days.
+    beat_champion: true

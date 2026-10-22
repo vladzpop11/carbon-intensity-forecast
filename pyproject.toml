@@ -13,6 +13,7 @@ dependencies = [
     "holidays>=0.107",
     "httpx>=0.28.1",
     "lightgbm>=4.7.0",
+    "mlflow-skinny>=3.17,<3.18",
     "numpy>=2",
     "pandas>=3",
     "pandera>=0.34.1",

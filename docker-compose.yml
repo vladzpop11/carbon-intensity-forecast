@@ -1,0 +1,36 @@
+# The local stack. Docker Desktop on this Mac has 4 GB, so every service is sized for that
+# (memory measured in docs/ of the workspace; see README).
+name: carbon-forecast
+
+services:
+  # Experiment tracking and the model registry. SQLite and the artifacts live on one volume;
+  # the server serves artifacts itself, so clients need no storage credentials.
+  # - MLFLOW_SERVER_ENABLE_JOB_EXECUTION=false: MLflow 3.17 otherwise starts 8 GenAI job
+  #   workers (about 1.6 GB instead of about 400 MB).
+  # - --workers 1: the default is 4 web workers of about 250 MB each, for one user here.
+  # - --allowed-hosts: MLflow 3 refuses other Host headers (exact host:port matches).
+  # - Host port 5050: macOS AirPlay Receiver holds 5000.
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v3.17.1
+    command: >
+      mlflow server --host 0.0.0.0 --port 5000
+      --backend-store-uri sqlite:////mlflow/mlflow.db
+      --artifacts-destination /mlflow/artifacts --serve-artifacts
+      --allowed-hosts mlflow:5000,localhost:5050,127.0.0.1:5050
+      --workers 1
+    environment:
+      MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
+    ports:
+      - "127.0.0.1:5050:5000"
+    volumes:
+      - mlflow-data:/mlflow
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    restart: unless-stopped
+
+volumes:
+  mlflow-data:

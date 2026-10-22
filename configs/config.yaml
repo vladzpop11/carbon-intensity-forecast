@@ -54,3 +54,16 @@ model:
 # Baselines, all known at the issue time: the same half hour on the latest day it is known
 # (the issue day for early slots, else the day before), and a week before the target.
 baselines: [same_time_latest, same_time_week_before]
+
+# Development experiments (make experiments), fixed before running them (2026-10-22). Each is
+# the model above with some settings changed, backtested on the development months and logged
+# to MLflow. Rule: the lowest development MAE wins, but `as_set` is kept unless another
+# candidate beats it by more than `margin` gCO2/kWh. Ablations are measured, never chosen.
+experiments:
+  margin: 0.2
+  candidates:
+    as_set: {}
+    l1_objective: {objective: regression_l1}
+    slower_longer: {n_estimators: 1500, learning_rate: 0.015}
+  ablations:
+    without_weather: {drop_features_starting: [wind_, shortwave_, temperature_, solar_, weather_]}

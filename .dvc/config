@@ -1,0 +1,6 @@
+[core]
+    autostage = true
+    remote = dagshub
+['remote "dagshub"']
+    url = s3://dvc
+    endpointurl = https://dagshub.com/vladzpop11/carbon-intensity-forecast.s3

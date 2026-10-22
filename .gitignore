@@ -15,3 +15,7 @@ dist/
 data/**
 !data/**/
 !data/**/.gitkeep
+# DVC tracks the data; git keeps its pointers.
+!data/*.dvc
+!data/.gitignore
+.vscode/

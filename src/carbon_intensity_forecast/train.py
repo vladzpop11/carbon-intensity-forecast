@@ -14,12 +14,14 @@ reports/training.json.
 python -m carbon_intensity_forecast.train
 """
 
+import json
 import os
 from datetime import UTC, datetime
 
 import mlflow
 import numpy as np
 import pandas as pd
+import yaml
 from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
 
@@ -39,18 +41,45 @@ def last_complete_day(intensity: pd.DataFrame) -> pd.Timestamp:
     return day if known.hour == 23 and known.minute == 30 else day - pd.Timedelta("1D")
 
 
-def champion_predictions(client: MlflowClient, name: str, rows: pd.DataFrame):
-    """(version, predictions) of the current champion, or (None, None) without one."""
+def champion_setup(client: MlflowClient, version) -> dict:
+    """The champion's settings and feature columns: from its `setup` tag, or for versions
+    registered before that tag existed, from its run's parameters and its input schema."""
+    if "setup" in version.tags:
+        return json.loads(version.tags["setup"])
+    run = client.get_run(version.run_id)
+    model = mlflow.pyfunc.load_model(f"models:/{version.name}/{version.version}")
+    params = {k: yaml.safe_load(v) for k, v in run.data.params.items()
+              if k not in {"features", "train_rows", "holdout_rows"}}  # fmt: skip
+    return {"params": params, "columns": model.metadata.get_input_schema().input_names()}
+
+
+def compare_with_champion(client: MlflowClient, name: str, table: pd.DataFrame,
+                          rows: pd.DataFrame, before: np.ndarray, holdout_start: pd.Timestamp,
+                          setup: dict) -> tuple:  # fmt: skip
+    """-> (champion version or None, its holdout MAE or None, how it was compared); see
+    configs/config.yaml, registry.gates.beat_champion."""
     try:
-        version = client.get_model_version_by_alias(name, "champion")
+        champion = client.get_model_version_by_alias(name, "champion")
     except MlflowException:
-        return None, None
-    model = mlflow.pyfunc.load_model(f"models:/{name}@champion")
-    columns = model.metadata.get_input_schema().input_names()
-    return version, np.asarray(model.predict(rows[columns]))
+        return None, None, "no champion"
+    trained_through = pd.Timestamp(champion.tags["trained_through"], tz="UTC")
+    if trained_through <= holdout_start - pd.Timedelta("2D"):  # no more data than the twin
+        model = mlflow.pyfunc.load_model(f"models:/{name}@champion")
+        columns = model.metadata.get_input_schema().input_names()
+        return champion, mae(model.predict(rows[columns]), rows["actual"]), "champion model"
+    old = champion_setup(client, champion)
+    if old == setup:
+        return champion, None, "same setup (refresh)"
+    twin = fit(table, before, old["params"], old["columns"])
+    return (
+        champion,
+        mae(twin.predict(rows[old["columns"]]), rows["actual"]),
+        "champion setup retrained",
+    )
 
 
 def gates(twin: float, baseline: float, champion: float | None, cfg: dict) -> dict:
+    """`champion` is None when there is no champion or the setup is the champion's own."""
     g = cfg["registry"]["gates"]
     skill = 1 - twin / baseline
     result = {"skill_vs_baseline": skill,
@@ -89,14 +118,18 @@ def main() -> None:
     base_rows = rows[reg["gates"]["baseline"]].notna()
     baseline_mae = mae(rows.loc[base_rows, reg["gates"]["baseline"]],
                        rows.loc[base_rows, "actual"])  # fmt: skip
-    champion, champion_pred = champion_predictions(client, name, rows)
-    champion_mae = None if champion is None else mae(champion_pred, rows["actual"])
+    setup = {"params": params, "columns": columns}
+    champion, champion_mae, compared = compare_with_champion(
+        client, name, table, rows, before, holdout_start, setup
+    )
     decision = gates(twin_mae, baseline_mae, champion_mae, cfg)
+    decision["champion_compared_as"] = compared
 
     final = fit(table, known.to_numpy(), params, columns)
     tags = {**provenance(), "trained_through": f"{last_day:%Y-%m-%d}",
             "holdout": f"{holdout_start:%Y-%m-%d}..{last_day:%Y-%m-%d}",
-            "gates_passed": str(decision["passed"])}  # fmt: skip
+            "gates_passed": str(decision["passed"]), "champion_compared_as": compared,
+            "setup": json.dumps(setup)}  # fmt: skip
     with mlflow.start_run(run_name=f"train-{last_day:%Y-%m-%d}") as run:
         mlflow.set_tags(tags)
         mlflow.log_params({**params, "features": len(columns), "train_rows": int(known.sum()),

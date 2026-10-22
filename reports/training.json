@@ -1,0 +1,24 @@
+{
+  "run_at": "2026-10-22T12:06:37Z",
+  "mlflow_run": "0a4fcdc1c8c84223bdc2ab35e27cb940",
+  "model_version": "1",
+  "previous_champion": null,
+  "promoted": true,
+  "git_commit": "48ea6309d2c3c950d59b3d7b055bb6d1622bde7e",
+  "git_dirty": "False",
+  "data_md5": "782cd1f6cc8c6aa963dcf3bbb436367b.dir",
+  "trained_through": "2026-10-20",
+  "holdout": "2026-09-23..2026-10-20",
+  "gates_passed": "True",
+  "holdout_mae": {
+    "challenger": 21.019247467747864,
+    "baseline": 51.314732142857146,
+    "champion": null
+  },
+  "gates": {
+    "skill_vs_baseline": 0.5903857120557204,
+    "beats_baseline": true,
+    "beats_champion": true,
+    "passed": true
+  }
+}

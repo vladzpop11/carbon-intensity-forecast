@@ -132,6 +132,9 @@ def build(issue_days, intensity: pd.DataFrame, weather: pd.DataFrame, cfg: dict)
     table = pd.concat([grid, calendar(grid), known_intensity(grid, actual, cfg),
                        weather_features(grid, weather, cfg)], axis=1)  # fmt: skip
     table["actual"] = actual.reindex(pd.DatetimeIndex(grid["target_time"])).to_numpy()
+    # Every feature as float64: the served model's input schema then allows missing values.
+    columns = feature_columns(table)
+    table[columns] = table[columns].astype("float64")
     return table
 
 

@@ -85,5 +85,12 @@ registry:
     # 1. Beat the best simple rule by a clear margin (development skill was 55%).
     min_skill_vs_baseline: 0.30
     baseline: same_time_latest
-    # 2. Strictly lower MAE than the current champion on the same holdout days.
+    # 2. Strictly lower MAE than the current champion on the same holdout days, compared
+    #    fairly (clarified 2026-10-22, before the first comparison with a champion):
+    #    - champion trained before the holdout window: the champion model itself, on days
+    #      new to both;
+    #    - champion trained into the window (it has seen some of it): the champion's
+    #      settings retrained on the same data as the challenger's twin;
+    #    - same settings and features as the champion (a routine refresh with newer data):
+    #      passes, since it is the champion's own setup; gate 1 still applies.
     beat_champion: true

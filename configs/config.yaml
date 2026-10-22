@@ -94,3 +94,30 @@ registry:
     #    - same settings and features as the champion (a routine refresh with newer data):
     #      passes, since it is the champion's own setup; gate 1 still applies.
     beat_champion: true
+
+# Monitoring and retraining (make monitor), fixed before the first live scores (2026-10-22).
+# Live forecasts are scored once a target day's actual values are complete, next to NESO's
+# archived day-ahead forecast and the baseline.
+monitoring:
+  database_url: postgresql+psycopg://forecast:forecast@127.0.0.1:5432/forecast   # compose
+  neso_archive_url: https://raw.githubusercontent.com/vladzpop11/carbon-intensity-forecast/archive/neso
+  first_live_issue_day: "2026-10-22"
+  # Drift (Evidently): the model's inputs over the last 28 issue days against the same 28
+  # days a year earlier (inputs follow the seasons, so a recent window would always differ).
+  drift:
+    window_days: 28
+    share_threshold: 0.5   # share of drifted features that counts as drift
+  # Retraining triggers, checked daily; any one starts the training flow, whose promotion
+  # gates still decide whether the new model is served.
+  retrain:
+    min_scored_days: 7
+    rolling_days: 14
+    # 1. Performance: the rolling MAE exceeds the development MAE (20.65) by 30%.
+    max_mae_ratio: 1.3
+    # 2. Drift as supporting evidence: drift detected and the rolling MAE 10% above it.
+    drift_mae_ratio: 1.1
+    reference_mae: 20.65
+    # 3. Staleness: the champion was trained through more than this many days ago.
+    max_model_age_days: 28
+    # No automatic retraining within this many days of the last one.
+    cooldown_days: 7

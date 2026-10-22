@@ -1,4 +1,4 @@
-.PHONY: help setup test data data-push data-pull backtest experiments up down
+.PHONY: help setup test data data-push data-pull backtest experiments train registry rollback up down
 
 # MLflow sends usage telemetry by default; this project turns it off.
 export MLFLOW_DISABLE_TELEMETRY := true
@@ -35,6 +35,15 @@ backtest:  ## Rolling-origin backtest on the development months (reports/backtes
 
 experiments:  ## Backtest the candidate setups on development months, logged to MLflow (needs `make up`)
 	uv run python -m carbon_intensity_forecast.experiments
+
+train:  ## Train, check the promotion gates, register (needs `make up`; reports/training.json)
+	uv run python -m carbon_intensity_forecast.train
+
+registry:  ## Show the champion and challenger model versions
+	uv run python -m carbon_intensity_forecast.registry status
+
+rollback:  ## Move the champion alias back to the version it replaced
+	uv run python -m carbon_intensity_forecast.registry rollback
 
 up:  ## Start the local stack (MLflow on http://127.0.0.1:5050)
 	docker compose up -d --wait

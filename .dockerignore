@@ -1,0 +1,14 @@
+.venv
+.git
+.env
+.env.*
+.dvc/cache
+.dvc/tmp
+data
+reports
+tests
+.cache
+.pytest_cache
+.ruff_cache
+**/__pycache__
+.vscode

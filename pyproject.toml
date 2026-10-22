@@ -21,7 +21,6 @@ dependencies = [
     "prometheus-client>=0.26.0",
     "prometheus-fastapi-instrumentator>=8.1.0",
     "pyyaml>=6.0.3",
-    "scikit-learn>=1.9.1",
     "uvicorn>=0.54.0",
 ]
 
@@ -37,6 +36,7 @@ dev = [
     "prefect>=3.9,<3.10",
     "pytest>=9.1.1",
     "ruff>=0.17.1",
+    "scikit-learn>=1.9",
 ]
 
 [tool.ruff]

@@ -1,5 +1,5 @@
 # The local stack. Docker Desktop on this Mac has 4 GB, so every service is sized for that
-# (memory measured in docs/ of the workspace; see README).
+# (memory per service in the README).
 name: carbon-forecast
 
 services:
@@ -32,5 +32,54 @@ services:
       start_period: 60s
     restart: unless-stopped
 
+  # The forecast API, serving the registry's champion (reloaded when the alias moves).
+  api:
+    build: .
+    image: carbon-forecast-api:dev
+    environment:
+      MODEL_URI: models:/carbon-intensity-day-ahead@champion
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.15.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=30d
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  # Data source and dashboards are provisioned from monitoring/grafana. Bound to this
+  # machine only; anonymous visitors can view.
+  grafana:
+    image: grafana/grafana:13.2.4
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
 volumes:
   mlflow-data:
+  prometheus-data:
+  grafana-data:

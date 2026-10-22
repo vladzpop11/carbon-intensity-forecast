@@ -54,8 +54,8 @@ promote:  ## Make VERSION the champion by hand (recorded on the version): make p
 flow:  ## The whole pipeline as a Prefect flow: ingest, validate, version, train, register
 	uv run python -m carbon_intensity_forecast.flows
 
-up:  ## Start the local stack (MLflow on http://127.0.0.1:5050)
-	docker compose up -d --wait
+up:  ## Start the stack: MLflow :5050, API :8000, Prometheus :9090, Grafana :3000 (needs models/champion)
+	docker compose up -d --build --wait
 
 down:  ## Stop the local stack (data stays in its volumes)
 	docker compose down

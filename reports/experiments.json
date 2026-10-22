@@ -1,6 +1,6 @@
 {
-  "git_commit": "6ebe08319fac36ce49dc1c49cf2b3e0e4fb4d444",
-  "git_dirty": "True",
+  "git_commit": "c5ecf809b0bb779fa1a22041af99c741161d67cd",
+  "git_dirty": "False",
   "data_md5": "782cd1f6cc8c6aa963dcf3bbb436367b.dir",
   "rule": "lowest MAE; as_set unless beaten by > 0.2",
   "chosen": "l1_objective",

@@ -39,7 +39,9 @@ evaluation:
 model:
   kind: lightgbm
   params:
-    objective: regression
+    # regression_l1 chosen by the experiment rule below (reports/experiments.json, commit
+    # c5ecf80): development MAE 20.65 against 21.00 as set. Design frozen 2026-10-22.
+    objective: regression_l1
     n_estimators: 600
     learning_rate: 0.03
     num_leaves: 31

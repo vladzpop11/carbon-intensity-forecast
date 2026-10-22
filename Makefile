@@ -1,4 +1,4 @@
-.PHONY: help setup secrets test data data-push data-pull backtest experiments train registry rollback promote flow export-model serve up down kind-up kind-down monitor drift-history daily
+.PHONY: help setup secrets test data data-push data-pull backtest experiments train registry rollback promote flow export-model serve up down kind-up kind-down monitor drift-history daily loadtest
 
 # MLflow sends usage telemetry by default; this project turns it off.
 export MLFLOW_DISABLE_TELEMETRY := true
@@ -102,3 +102,6 @@ monitor:  ## Issue, benchmark and score live forecasts; drift report; retraining
 
 drift-history:  ## How often input drift was flagged in past months, and whether it tracked the error
 	uv run python -m carbon_intensity_forecast.drift_history
+
+loadtest:  ## Load test the API (needs `make up`): p95 of /forecast below the target in config.yaml
+	uv run python -m carbon_intensity_forecast.loadtest

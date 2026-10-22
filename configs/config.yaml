@@ -136,3 +136,12 @@ monitoring:
     max_model_age_days: 28
     # No automatic retraining within this many days of the last completed training.
     cooldown_days: 7
+
+# Load test (make loadtest), target fixed before the first run (2026-10-22): with 20 users
+# reading the forecast for 60 s, the 95th percentile of /forecast stays below 200 ms and no
+# request fails. Measured on the 2-core Mac against the compose API (client on the same
+# machine), after the day's forecast has been computed once.
+loadtest:
+  users: 20
+  seconds: 60
+  p95_ms_below: 200

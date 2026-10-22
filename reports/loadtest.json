@@ -1,0 +1,37 @@
+{
+  "run_at": "2026-10-22T15:12:38Z",
+  "url": "http://127.0.0.1:8000",
+  "client_machine": "Darwin x86_64",
+  "target": {
+    "users": 20,
+    "seconds": 60,
+    "p95_ms_below": 200
+  },
+  "passed": true,
+  "results": {
+    "/forecast": {
+      "requests": 861,
+      "failures": 0,
+      "median_ms": 11.0,
+      "p95_ms": 28.0,
+      "p99_ms": 280.0,
+      "requests_per_second": 14.778144986356686
+    },
+    "/health": {
+      "requests": 89,
+      "failures": 0,
+      "median_ms": 10.0,
+      "p95_ms": 26.0,
+      "p99_ms": 280.0,
+      "requests_per_second": 1.5275898998672999
+    },
+    "Aggregated": {
+      "requests": 950,
+      "failures": 0,
+      "median_ms": 11.0,
+      "p95_ms": 28.0,
+      "p99_ms": 280.0,
+      "requests_per_second": 16.305734886223988
+    }
+  }
+}

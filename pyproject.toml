@@ -39,7 +39,13 @@ pipeline = [
     "sqlalchemy>=2",
 ]
 # Development and tests, on top of the pipeline.
-dev = ["httpx2>=2.16.0", "pre-commit>=4.7.0", "pytest>=9.1.1", "ruff>=0.17.1"]
+dev = [
+    "httpx2>=2.16.0",
+    "locust>=2.46",
+    "pre-commit>=4.7.0",
+    "pytest>=9.1.1",
+    "ruff>=0.17.1",
+]
 
 [tool.uv]
 default-groups = ["dev", "pipeline"]

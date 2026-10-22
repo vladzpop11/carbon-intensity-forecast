@@ -167,9 +167,9 @@ def main() -> None:
     }
     write_json(project_path("reports/training.json"), record)
     verdict = "promoted to champion" if decision["passed"] else "not promoted"
-    print(f"version {version}: holdout MAE {twin_mae:.2f} (baseline {baseline_mae:.2f}, "
-          f"champion {champion_mae if champion_mae is None else round(champion_mae, 2)}): "
-          f"{verdict}")  # fmt: skip
+    against = "" if champion_mae is None else f", champion {champion_mae:.2f}"
+    print(f"version {version}: holdout MAE {twin_mae:.2f} (baseline {baseline_mae:.2f}"
+          f"{against}; champion compared as: {compared}): {verdict}")  # fmt: skip
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-.PHONY: help setup test data data-push data-pull backtest experiments train registry rollback up down
+.PHONY: help setup test data data-push data-pull backtest experiments train registry rollback promote up down
 
 # MLflow sends usage telemetry by default; this project turns it off.
 export MLFLOW_DISABLE_TELEMETRY := true
@@ -44,6 +44,9 @@ registry:  ## Show the champion and challenger model versions
 
 rollback:  ## Move the champion alias back to the version it replaced
 	uv run python -m carbon_intensity_forecast.registry rollback
+
+promote:  ## Make VERSION the champion by hand (recorded on the version): make promote VERSION=3
+	uv run python -m carbon_intensity_forecast.registry promote $(VERSION)
 
 up:  ## Start the local stack (MLflow on http://127.0.0.1:5050)
 	docker compose up -d --wait

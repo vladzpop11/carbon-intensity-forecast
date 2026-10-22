@@ -3,6 +3,7 @@ to the version it replaced.
 
 python -m carbon_intensity_forecast.registry status
 python -m carbon_intensity_forecast.registry rollback
+python -m carbon_intensity_forecast.registry promote VERSION   (a manual decision, recorded)
 """
 
 import os
@@ -46,11 +47,26 @@ def rollback(client: MlflowClient, name: str) -> str:
     return previous
 
 
+def promote(client: MlflowClient, name: str, version: str) -> None:
+    """Make `version` the champion by hand, bypassing the gates; recorded on the version."""
+    try:
+        current = client.get_model_version_by_alias(name, "champion").version
+    except mlflow.exceptions.MlflowException:
+        current = None
+    client.set_registered_model_alias(name, "champion", version)
+    stamp = f"{datetime.now(UTC):%Y-%m-%dT%H:%M:%SZ}"
+    client.set_model_version_tag(name, version, "promoted_manually_at", stamp)
+    if current and current != version:
+        client.set_model_version_tag(name, version, "previous_champion", current)
+    print(f"champion: version {current} -> version {version} (manual)")
+
+
 def main() -> None:
     cfg = load_config()
     client = client_for(cfg)
     name = cfg["registry"]["model_name"]
-    {"status": status, "rollback": rollback}[sys.argv[1]](client, name)
+    command, *args = sys.argv[1:]
+    {"status": status, "rollback": rollback, "promote": promote}[command](client, name, *args)
 
 
 if __name__ == "__main__":

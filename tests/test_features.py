@@ -77,3 +77,19 @@ def test_the_shortest_published_weather_lead_is_used(cfg) -> None:
     day1 = grid.loc[lead == 1, "target_time"]
     assert day1.max() == ISSUE_DAY + pd.Timedelta("1D") + pd.Timedelta("3h")
     assert (lead[grid["target_time"].dt.hour >= 4] == 2).all()
+
+
+def test_backtest_training_targets_end_before_the_first_issue_time(cfg) -> None:
+    """Every month's model is trained only on targets published before the month's first
+    forecast is issued (09:00 on the day before the month)."""
+    from carbon_intensity_forecast.backtest import split
+
+    days = pd.date_range("2025-01-01", "2025-03-31", freq="1D", tz="UTC")
+    table = F.targets(days, cfg).assign(actual=1.0)
+    month = pd.Period("2025-03", freq="M")
+    train, test = split(table, month)
+    first_issue = table.loc[test, "issue_time"].min()
+    delay = pd.Timedelta(minutes=cfg["task"]["actual_delay_minutes"])
+    published = table.loc[train, "target_time"] + pd.Timedelta("30min") + delay
+    assert published.max() <= first_issue
+    assert table.loc[test, "target_time"].min() == pd.Timestamp("2025-03-01", tz="UTC")

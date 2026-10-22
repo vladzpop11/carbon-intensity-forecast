@@ -1,11 +1,11 @@
 {
-  "downloaded_at": "2026-10-22T12:14:43Z",
+  "downloaded_at": "2026-10-22T13:31:16Z",
   "intensity": {
-    "half_hours": 154392,
+    "half_hours": 154394,
     "first": "2018-01-01 00:00:00+00:00",
-    "last": "2026-10-22 11:30:00+00:00",
+    "last": "2026-10-22 12:30:00+00:00",
     "not_returned_by_the_api": 179,
-    "without_actual": 815,
+    "without_actual": 810,
     "faults_set_to_missing": {
       "actual": {
         "count": 6,

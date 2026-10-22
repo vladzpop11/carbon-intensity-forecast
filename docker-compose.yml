@@ -98,7 +98,50 @@ services:
       - prometheus
     restart: unless-stopped
 
+  # Orchestration: the Prefect server (UI on http://127.0.0.1:4200) and the scheduler, which
+  # runs the daily flow at start (catching up on missed days) and then at 09:30 UTC.
+  prefect-server:
+    image: prefecthq/prefect:3.9.0-python3.12
+    command: prefect server start --host 0.0.0.0
+    environment:
+      PREFECT_UI_API_URL: http://127.0.0.1:4200/api
+      PREFECT_SERVER_ANALYTICS_ENABLED: "false"
+    ports:
+      - "127.0.0.1:4200:4200"
+    volumes:
+      - prefect-data:/root/.prefect
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4200/api/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+      start_period: 60s
+    restart: unless-stopped
+
+  # The project folder is mounted: the flow reads and writes data/, models/ and reports/,
+  # runs DVC with the token in .env, and records the git commit of the checkout.
+  scheduler:
+    build:
+      context: .
+      target: pipeline
+    image: carbon-forecast-pipeline:dev
+    environment:
+      PREFECT_API_URL: http://prefect-server:4200/api
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MONITORING_DATABASE_URL: postgresql+psycopg://forecast:forecast@postgres:5432/forecast
+    volumes:
+      - .:/project
+    depends_on:
+      mlflow:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      prefect-server:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
+  prefect-data:
   postgres-data:
   mlflow-data:
   prometheus-data:

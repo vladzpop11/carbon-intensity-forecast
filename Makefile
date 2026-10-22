@@ -1,4 +1,4 @@
-.PHONY: help setup test data data-push data-pull backtest experiments train registry rollback promote flow export-model serve up down kind-up kind-down monitor drift-history
+.PHONY: help setup test data data-push data-pull backtest experiments train registry rollback promote flow export-model serve up down kind-up kind-down monitor drift-history daily
 
 # MLflow sends usage telemetry by default; this project turns it off.
 export MLFLOW_DISABLE_TELEMETRY := true
@@ -51,8 +51,11 @@ rollback:  ## Move the champion alias back to the version it replaced
 promote:  ## Make VERSION the champion by hand (recorded on the version): make promote VERSION=3
 	uv run python -m carbon_intensity_forecast.registry promote $(VERSION)
 
-flow:  ## The whole pipeline as a Prefect flow: ingest, validate, version, train, register
-	uv run python -m carbon_intensity_forecast.flows
+flow:  ## The training pipeline as a Prefect flow: ingest, validate, version, train, register
+	uv run python -m carbon_intensity_forecast.flows training
+
+daily:  ## The daily flow: ingest, version, monitor; retrain if triggered (needs `make up`)
+	uv run python -m carbon_intensity_forecast.flows daily
 
 up:  ## Start the stack: MLflow :5050, API :8000, Prometheus :9090, Grafana :3000 (needs models/champion)
 	docker compose up -d --build --wait

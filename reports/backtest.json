@@ -1,10 +1,10 @@
 {
-  "run_at": "2026-10-21T20:58:16Z",
+  "run_at": "2026-10-22T12:02:32Z",
   "months": "development_months",
   "model": {
     "kind": "lightgbm",
     "params": {
-      "objective": "regression",
+      "objective": "regression_l1",
       "n_estimators": 600,
       "learning_rate": 0.03,
       "num_leaves": 31,
@@ -19,28 +19,31 @@
     }
   },
   "overall_mae": {
-    "model": 21.00006224055189,
+    "model": 20.653543910341444,
     "same_time_latest": 46.268189277899346,
     "same_time_week_before": 56.850610867979576
   },
+  "rows_scored": 21936,
+  "rows_without_a_baseline": 0,
+  "model_mae_all_rows": 20.653543910341444,
   "by_lead": {
     "15-21 h": {
-      "model": 20.767210021462763,
+      "model": 20.28586913135368,
       "same_time_latest": 39.01148796498906,
       "same_time_week_before": 57.44657184536835
     },
     "21-27 h": {
-      "model": 21.898277736626948,
+      "model": 21.705612420091796,
       "same_time_latest": 44.816192560175054,
       "same_time_week_before": 55.731765134938
     },
     "27-33 h": {
-      "model": 20.213578574087723,
+      "model": 19.98178344231131,
       "same_time_latest": 47.90390226112327,
       "same_time_week_before": 53.817469000729396
     },
     "33-39 h": {
-      "model": 21.121182630030123,
+      "model": 20.640910647608987,
       "same_time_latest": 53.34117432530999,
       "same_time_week_before": 60.40663749088257
     }
@@ -50,7 +53,7 @@
       "month": "2024-10",
       "train_rows": 9761,
       "test_rows": 1488,
-      "model": 20.695904335774525,
+      "model": 21.14991836421525,
       "same_time_latest": 54.76478494623656,
       "same_time_week_before": 50.27486559139785
     },
@@ -58,7 +61,7 @@
       "month": "2024-11",
       "train_rows": 11249,
       "test_rows": 1440,
-      "model": 20.28593098942402,
+      "model": 21.557403000757862,
       "same_time_latest": 51.143055555555556,
       "same_time_week_before": 55.99236111111111
     },
@@ -66,7 +69,7 @@
       "month": "2024-12",
       "train_rows": 12689,
       "test_rows": 1488,
-      "model": 28.25884823324359,
+      "model": 25.23175706324377,
       "same_time_latest": 58.87231182795699,
       "same_time_week_before": 73.62567204301075
     },
@@ -74,7 +77,7 @@
       "month": "2025-01",
       "train_rows": 14177,
       "test_rows": 1488,
-      "model": 27.27954395533833,
+      "model": 27.341216451696777,
       "same_time_latest": 49.020161290322584,
       "same_time_week_before": 77.71706989247312
     },
@@ -82,7 +85,7 @@
       "month": "2025-02",
       "train_rows": 15665,
       "test_rows": 1344,
-      "model": 18.943168029559427,
+      "model": 18.60130096411488,
       "same_time_latest": 45.191964285714285,
       "same_time_week_before": 71.61235119047619
     },
@@ -90,7 +93,7 @@
       "month": "2025-03",
       "train_rows": 17009,
       "test_rows": 1488,
-      "model": 21.703708777021447,
+      "model": 20.334082741392205,
       "same_time_latest": 50.255376344086024,
       "same_time_week_before": 57.87903225806452
     },
@@ -98,7 +101,7 @@
       "month": "2025-04",
       "train_rows": 18497,
       "test_rows": 1440,
-      "model": 19.702014535729084,
+      "model": 19.099409485120415,
       "same_time_latest": 47.32222222222222,
       "same_time_week_before": 57.483333333333334
     },
@@ -106,7 +109,7 @@
       "month": "2025-05",
       "train_rows": 19937,
       "test_rows": 1488,
-      "model": 18.289476225116456,
+      "model": 18.436325056618237,
       "same_time_latest": 40.91263440860215,
       "same_time_week_before": 40.516801075268816
     },
@@ -114,7 +117,7 @@
       "month": "2025-06",
       "train_rows": 21425,
       "test_rows": 1440,
-      "model": 18.001420174893187,
+      "model": 17.881621439648157,
       "same_time_latest": 38.672916666666666,
       "same_time_week_before": 37.32013888888889
     },
@@ -122,7 +125,7 @@
       "month": "2025-07",
       "train_rows": 22865,
       "test_rows": 1488,
-      "model": 18.617078412899833,
+      "model": 18.598753767613086,
       "same_time_latest": 38.02956989247312,
       "same_time_week_before": 37.16532258064516
     },
@@ -130,7 +133,7 @@
       "month": "2025-08",
       "train_rows": 24353,
       "test_rows": 1488,
-      "model": 22.41658802167891,
+      "model": 19.471955185663266,
       "same_time_latest": 32.715053763440864,
       "same_time_week_before": 51.579301075268816
     },
@@ -138,7 +141,7 @@
       "month": "2025-09",
       "train_rows": 25841,
       "test_rows": 1440,
-      "model": 15.95043780517937,
+      "model": 16.220590706579674,
       "same_time_latest": 44.41388888888889,
       "same_time_week_before": 48.78055555555556
     },
@@ -146,7 +149,7 @@
       "month": "2025-10",
       "train_rows": 27281,
       "test_rows": 1488,
-      "model": 21.75331730493696,
+      "model": 22.44715957465966,
       "same_time_latest": 45.729838709677416,
       "same_time_week_before": 83.52822580645162
     },
@@ -154,7 +157,7 @@
       "month": "2025-11",
       "train_rows": 28769,
       "test_rows": 1440,
-      "model": 22.145094611303723,
+      "model": 22.101915658964593,
       "same_time_latest": 49.27430555555556,
       "same_time_week_before": 61.95
     },
@@ -162,13 +165,13 @@
       "month": "2025-12",
       "train_rows": 30209,
       "test_rows": 1488,
-      "model": 20.471753947172786,
+      "model": 20.924474740017164,
       "same_time_latest": 47.58400537634409,
       "same_time_week_before": 48.02956989247312
     }
   ],
   "skill_vs": {
-    "same_time_latest": 0.5461231016753261,
-    "same_time_week_before": 0.6306097345318074
+    "same_time_latest": 0.5536124444747419,
+    "same_time_week_before": 0.6367049782753644
   }
 }

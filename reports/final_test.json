@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-22T11:59:14Z",
+  "run_at": "2026-10-22T12:00:57Z",
   "months": "final_test_months",
   "model": {
     "kind": "lightgbm",
@@ -19,10 +19,13 @@
     }
   },
   "overall_mae": {
-    "model": 21.117512371890783,
-    "same_time_latest": NaN,
-    "same_time_week_before": NaN
+    "model": 21.119664533759888,
+    "same_time_latest": 43.90382413556217,
+    "same_time_week_before": 50.86772002137241
   },
+  "rows_scored": 13101,
+  "rows_without_a_baseline": 2,
+  "model_mae_all_rows": 21.117512371890783,
   "by_lead": {
     "15-21 h": {
       "model": 24.48667886554797,
@@ -30,9 +33,9 @@
       "same_time_week_before": 55.562271062271066
     },
     "21-27 h": {
-      "model": 19.76580161911173,
-      "same_time_latest": NaN,
-      "same_time_week_before": NaN
+      "model": 19.77359020791147,
+      "same_time_latest": 42.28414298808433,
+      "same_time_week_before": 48.602199816681946
     },
     "27-33 h": {
       "model": 18.641702428216124,
@@ -106,9 +109,9 @@
       "month": "2026-08",
       "train_rows": 41873,
       "test_rows": 1487,
-      "model": 19.829531175051116,
-      "same_time_latest": NaN,
-      "same_time_week_before": NaN
+      "model": 19.84678337050797,
+      "same_time_latest": 38.162962962962965,
+      "same_time_week_before": 45.9016835016835
     },
     {
       "month": "2026-09",
@@ -120,7 +123,10 @@
     }
   ],
   "skill_vs": {
-    "same_time_latest": NaN,
-    "same_time_week_before": NaN
-  }
+    "same_time_latest": 0.5189561513241183,
+    "same_time_week_before": 0.5848120473084636
+  },
+  "revisions": [
+    "2026-10-22: rerun to fix baseline scoring (nan where a baseline input was a fault); same frozen design (601e9e7), same data, deterministic: model predictions unchanged"
+  ]
 }

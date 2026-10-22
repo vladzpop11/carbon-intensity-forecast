@@ -9,6 +9,7 @@ python -m carbon_intensity_forecast.backtest [--final-test]
 """
 
 import argparse
+import json
 from datetime import UTC, datetime
 
 import lightgbm as lgb
@@ -47,11 +48,20 @@ def mae(predicted, actual) -> float:
     return float(np.mean(np.abs(np.asarray(predicted) - np.asarray(actual))))
 
 
+def score(rows: pd.DataFrame, names: list[str]) -> dict[str, float]:
+    """MAE of each method on the same half hours: those where every method has a forecast
+    (a baseline is missing where its input value was missing or a fault)."""
+    common = rows[names].notna().all(axis=1)
+    return {name: mae(rows.loc[common, name], rows.loc[common, "actual"]) for name in names}
+
+
 def run(table: pd.DataFrame, period: pd.PeriodIndex, cfg: dict, params: dict | None = None,
         columns: list[str] | None = None) -> dict:  # fmt: skip
-    """Backtest one model setup (by default the configured one, on every feature)."""
+    """Backtest one model setup (by default the configured one, on every feature). Returns
+    the scores and, under "predictions", every scored row."""
     params = params or cfg["model"]["params"]
     columns = columns or F.feature_columns(table)
+    names = ["model", *cfg["baselines"]]
     per_month, scored = [], []
     for month in period:
         train, test = split(table, month)
@@ -59,24 +69,28 @@ def run(table: pd.DataFrame, period: pd.PeriodIndex, cfg: dict, params: dict | N
         rows = table.loc[test].copy()
         rows["model"] = model.predict(rows[columns])
         scored.append(rows)
-        entry = {"month": str(month), "train_rows": int(train.sum()), "test_rows": int(test.sum()),
-                 "model": mae(rows["model"], rows["actual"])}  # fmt: skip
-        for b in cfg["baselines"]:
-            entry[b] = mae(rows[b], rows["actual"])
+        entry = {"month": str(month), "train_rows": int(train.sum()),
+                 "test_rows": int(test.sum()), **score(rows, names)}  # fmt: skip
         per_month.append(entry)
-        print(f"{month}: model {entry['model']:.1f}, "
-              + ", ".join(f"{b} {entry[b]:.1f}" for b in cfg["baselines"]))  # fmt: skip
+        print(f"{month}: " + ", ".join(f"{n} {entry[n]:.1f}" for n in names))
     rows = pd.concat(scored)
-    overall = {name: mae(rows[name], rows["actual"]) for name in ["model", *cfg["baselines"]]}
+    overall = score(rows, names)
     by_lead = {
-        f"{lo:g}-{hi:g} h": {
-            name: mae(part[name], part["actual"]) for name in ["model", *cfg["baselines"]]
-        }
+        f"{lo:g}-{hi:g} h": score(part, names)
         for lo, hi in [(15, 21), (21, 27), (27, 33), (33, 39)]
         if len(part := rows[(rows["lead_hours"] >= lo) & (rows["lead_hours"] < hi)])
     }
     skill = {b: 1 - overall["model"] / overall[b] for b in cfg["baselines"]}
-    return {"overall_mae": overall, "by_lead": by_lead, "per_month": per_month, "skill_vs": skill}
+    return {
+        "overall_mae": overall,
+        "rows_scored": int(rows[names].notna().all(axis=1).sum()),
+        "rows_without_a_baseline": int((~rows[names].notna().all(axis=1)).sum()),
+        "model_mae_all_rows": mae(rows["model"], rows["actual"]),
+        "by_lead": by_lead,
+        "per_month": per_month,
+        "skill_vs": skill,
+        "predictions": rows[["issue_day", "target_time", "lead_hours", "actual", *names]],
+    }
 
 
 def build_table(cfg: dict, period: pd.PeriodIndex) -> pd.DataFrame:
@@ -92,17 +106,27 @@ def main() -> None:
     parser.add_argument(
         "--final-test", action="store_true", help="score the final-test months, once"
     )
+    parser.add_argument("--revision", help="rerun an existing final test, recording why")
     args = parser.parse_args()
     cfg = load_config()
     key = "final_test_months" if args.final_test else "development_months"
     period = months(*cfg["evaluation"][key])
     out = project_path("reports/final_test.json" if args.final_test else "reports/backtest.json")
+    revisions = []
     if args.final_test and out.exists():
-        raise SystemExit(f"{out} exists: the final test has been run already")
+        if not args.revision:
+            raise SystemExit(f"{out} exists: the final test has been run already")
+        revisions = [*json.loads(out.read_text()).get("revisions", []), args.revision]
     table = build_table(cfg, period)
     result = run(table, period, cfg)
-    write_json(out, {"run_at": f"{datetime.now(UTC):%Y-%m-%dT%H:%M:%SZ}", "months": key,
-                     "model": cfg["model"], **result})  # fmt: skip
+    predictions = result.pop("predictions")
+    predictions.to_csv(out.with_name(out.stem + "_predictions.csv"), index=False,
+                       date_format="%Y-%m-%dT%H:%M:%SZ")  # fmt: skip
+    record = {"run_at": f"{datetime.now(UTC):%Y-%m-%dT%H:%M:%SZ}", "months": key,
+              "model": cfg["model"], **result}  # fmt: skip
+    if revisions:
+        record["revisions"] = revisions
+    write_json(out, record)
     o = result["overall_mae"]
     print("overall MAE: " + ", ".join(f"{k} {v:.2f}" for k, v in o.items()))
 

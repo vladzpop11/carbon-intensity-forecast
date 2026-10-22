@@ -59,6 +59,7 @@ def main() -> None:
         params = {**cfg["model"]["params"], **change}
         print(f"--- {name} ({kind})")
         result = run(table, period, cfg, params, columns)
+        result.pop("predictions")
         with mlflow.start_run(run_name=name):
             mlflow.set_tags({**tags, "kind": kind, "months": "development"})
             mlflow.log_params({**params, "features": len(columns),

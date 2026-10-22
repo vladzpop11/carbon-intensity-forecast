@@ -77,10 +77,12 @@ jobs:
       - name: Smoke test the image (/health, then a live /forecast)
         run: |
           docker run -d --name api -p 127.0.0.1:8000:8000 carbon-forecast-api:dev
-          curl -sf --retry 30 --retry-connrefused --retry-delay 2 localhost:8000/health
+          # Docker accepts connections before the API is up and then resets them (curl 56),
+          # so retry on any error until it answers.
+          curl -sf --retry 30 --retry-all-errors --retry-delay 2 localhost:8000/health
           echo
           # The forecast calls the Carbon Intensity and Open-Meteo APIs; retry briefly.
-          curl -sf --retry 3 --retry-delay 20 --max-time 120 localhost:8000/forecast \
+          curl -sf --retry 3 --retry-all-errors --retry-delay 20 --max-time 120 localhost:8000/forecast \
             | python3 -c "import json,sys; d=json.load(sys.stdin); assert len(d['half_hours']) == 48; print(d['target_day'], 'model', d['model_version'])"
           docker stop api
 
@@ -96,7 +98,7 @@ jobs:
           kubectl apply -k k8s/overlays/kind
           kubectl -n carbon-forecast rollout status deployment/forecast-api --timeout=300s
           kubectl -n carbon-forecast port-forward svc/forecast-api 8080:80 &
-          curl -sf --retry 20 --retry-connrefused --retry-delay 2 localhost:8080/health
+          curl -sf --retry 20 --retry-all-errors --retry-delay 2 localhost:8080/health
           echo
 
       - name: Publish to GitHub Container Registry

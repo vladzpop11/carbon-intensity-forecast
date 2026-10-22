@@ -1,4 +1,8 @@
-.PHONY: help setup test data data-push data-pull backtest
+.PHONY: help setup test data data-push data-pull backtest experiments up down
+
+# MLflow sends usage telemetry by default; this project turns it off.
+export MLFLOW_DISABLE_TELEMETRY := true
+export MLFLOW_DISABLE_AGENT_HINT := 1
 
 # DagsHub credentials for DVC come from .env (never committed): DAGSHUB_USER, DAGSHUB_TOKEN.
 # DagsHub's S3 endpoint takes the token as both key and secret.
@@ -28,3 +32,12 @@ data-pull:  ## Download the data version this commit points to
 
 backtest:  ## Rolling-origin backtest on the development months (reports/backtest.json)
 	uv run python -m carbon_intensity_forecast.backtest
+
+experiments:  ## Backtest the candidate setups on development months, logged to MLflow (needs `make up`)
+	uv run python -m carbon_intensity_forecast.experiments
+
+up:  ## Start the local stack (MLflow on http://127.0.0.1:5050)
+	docker compose up -d --wait
+
+down:  ## Stop the local stack (data stays in its volumes)
+	docker compose down

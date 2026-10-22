@@ -37,9 +37,8 @@ def split(table: pd.DataFrame, month: pd.Period) -> tuple[np.ndarray, np.ndarray
     return train.to_numpy(), test.to_numpy()
 
 
-def fit(table: pd.DataFrame, rows: np.ndarray, cfg: dict) -> lgb.LGBMRegressor:
-    model = lgb.LGBMRegressor(**cfg["model"]["params"])
-    columns = F.feature_columns(table)
+def fit(table: pd.DataFrame, rows: np.ndarray, params: dict, columns: list[str]):
+    model = lgb.LGBMRegressor(**params)
     model.fit(table.loc[rows, columns], table.loc[rows, "actual"])
     return model
 
@@ -48,12 +47,15 @@ def mae(predicted, actual) -> float:
     return float(np.mean(np.abs(np.asarray(predicted) - np.asarray(actual))))
 
 
-def run(table: pd.DataFrame, period: pd.PeriodIndex, cfg: dict) -> dict:
-    columns = F.feature_columns(table)
+def run(table: pd.DataFrame, period: pd.PeriodIndex, cfg: dict, params: dict | None = None,
+        columns: list[str] | None = None) -> dict:  # fmt: skip
+    """Backtest one model setup (by default the configured one, on every feature)."""
+    params = params or cfg["model"]["params"]
+    columns = columns or F.feature_columns(table)
     per_month, scored = [], []
     for month in period:
         train, test = split(table, month)
-        model = fit(table, train, cfg)
+        model = fit(table, train, params, columns)
         rows = table.loc[test].copy()
         rows["model"] = model.predict(rows[columns])
         scored.append(rows)
@@ -77,6 +79,14 @@ def run(table: pd.DataFrame, period: pd.PeriodIndex, cfg: dict) -> dict:
     return {"overall_mae": overall, "by_lead": by_lead, "per_month": per_month, "skill_vs": skill}
 
 
+def build_table(cfg: dict, period: pd.PeriodIndex) -> pd.DataFrame:
+    """Every issue day from the start of the weather data to the last target in `period`."""
+    intensity, weather = F.load_raw(cfg)
+    first = pd.Timestamp(cfg["weather"]["start"], tz="UTC") + pd.Timedelta("1D")
+    last = period[-1].end_time.tz_localize("UTC").normalize() - pd.Timedelta("1D")
+    return F.build(pd.date_range(first, last, freq="1D"), intensity, weather, cfg)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -89,10 +99,7 @@ def main() -> None:
     out = project_path("reports/final_test.json" if args.final_test else "reports/backtest.json")
     if args.final_test and out.exists():
         raise SystemExit(f"{out} exists: the final test has been run already")
-    intensity, weather = F.load_raw(cfg)
-    first = pd.Timestamp(cfg["weather"]["start"], tz="UTC") + pd.Timedelta("1D")
-    last = period[-1].end_time.tz_localize("UTC").normalize() - pd.Timedelta("1D")
-    table = F.build(pd.date_range(first, last, freq="1D"), intensity, weather, cfg)
+    table = build_table(cfg, period)
     result = run(table, period, cfg)
     write_json(out, {"run_at": f"{datetime.now(UTC):%Y-%m-%dT%H:%M:%SZ}", "months": key,
                      "model": cfg["model"], **result})  # fmt: skip

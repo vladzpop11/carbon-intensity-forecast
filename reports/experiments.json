@@ -1,0 +1,130 @@
+{
+  "git_commit": "6ebe08319fac36ce49dc1c49cf2b3e0e4fb4d444",
+  "git_dirty": "True",
+  "data_md5": "782cd1f6cc8c6aa963dcf3bbb436367b.dir",
+  "rule": "lowest MAE; as_set unless beaten by > 0.2",
+  "chosen": "l1_objective",
+  "runs": {
+    "as_set": {
+      "kind": "candidate",
+      "change": {},
+      "mae": 21.00006224055189,
+      "by_lead": {
+        "15-21 h": {
+          "model": 20.767210021462763,
+          "same_time_latest": 39.01148796498906,
+          "same_time_week_before": 57.44657184536835
+        },
+        "21-27 h": {
+          "model": 21.898277736626948,
+          "same_time_latest": 44.816192560175054,
+          "same_time_week_before": 55.731765134938
+        },
+        "27-33 h": {
+          "model": 20.213578574087723,
+          "same_time_latest": 47.90390226112327,
+          "same_time_week_before": 53.817469000729396
+        },
+        "33-39 h": {
+          "model": 21.121182630030123,
+          "same_time_latest": 53.34117432530999,
+          "same_time_week_before": 60.40663749088257
+        }
+      }
+    },
+    "l1_objective": {
+      "kind": "candidate",
+      "change": {
+        "objective": "regression_l1"
+      },
+      "mae": 20.653543910341444,
+      "by_lead": {
+        "15-21 h": {
+          "model": 20.28586913135368,
+          "same_time_latest": 39.01148796498906,
+          "same_time_week_before": 57.44657184536835
+        },
+        "21-27 h": {
+          "model": 21.705612420091796,
+          "same_time_latest": 44.816192560175054,
+          "same_time_week_before": 55.731765134938
+        },
+        "27-33 h": {
+          "model": 19.98178344231131,
+          "same_time_latest": 47.90390226112327,
+          "same_time_week_before": 53.817469000729396
+        },
+        "33-39 h": {
+          "model": 20.640910647608987,
+          "same_time_latest": 53.34117432530999,
+          "same_time_week_before": 60.40663749088257
+        }
+      }
+    },
+    "slower_longer": {
+      "kind": "candidate",
+      "change": {
+        "n_estimators": 1500,
+        "learning_rate": 0.015
+      },
+      "mae": 20.963861599443216,
+      "by_lead": {
+        "15-21 h": {
+          "model": 20.81802814634587,
+          "same_time_latest": 39.01148796498906,
+          "same_time_week_before": 57.44657184536835
+        },
+        "21-27 h": {
+          "model": 21.91678706538107,
+          "same_time_latest": 44.816192560175054,
+          "same_time_week_before": 55.731765134938
+        },
+        "27-33 h": {
+          "model": 20.036218408757676,
+          "same_time_latest": 47.90390226112327,
+          "same_time_week_before": 53.817469000729396
+        },
+        "33-39 h": {
+          "model": 21.08441277728824,
+          "same_time_latest": 53.34117432530999,
+          "same_time_week_before": 60.40663749088257
+        }
+      }
+    },
+    "without_weather": {
+      "kind": "ablation",
+      "change": {
+        "drop_features_starting": [
+          "wind_",
+          "shortwave_",
+          "temperature_",
+          "solar_",
+          "weather_"
+        ]
+      },
+      "mae": 43.25423682397789,
+      "by_lead": {
+        "15-21 h": {
+          "model": 38.92356544985083,
+          "same_time_latest": 39.01148796498906,
+          "same_time_week_before": 57.44657184536835
+        },
+        "21-27 h": {
+          "model": 41.227976131775605,
+          "same_time_latest": 44.816192560175054,
+          "same_time_week_before": 55.731765134938
+        },
+        "27-33 h": {
+          "model": 43.442979556970116,
+          "same_time_latest": 47.90390226112327,
+          "same_time_week_before": 53.817469000729396
+        },
+        "33-39 h": {
+          "model": 49.422426157315,
+          "same_time_latest": 53.34117432530999,
+          "same_time_week_before": 60.40663749088257
+        }
+      }
+    }
+  }
+}

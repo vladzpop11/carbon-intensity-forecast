@@ -67,3 +67,6 @@ experiments:
     slower_longer: {n_estimators: 1500, learning_rate: 0.015}
   ablations:
     without_weather: {drop_features_starting: [wind_, shortwave_, temperature_, solar_, weather_]}
+
+mlflow:
+  tracking_uri: http://127.0.0.1:5050   # the compose service; MLFLOW_TRACKING_URI overrides it

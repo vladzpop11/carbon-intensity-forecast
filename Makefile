@@ -1,4 +1,4 @@
-.PHONY: help setup test data data-push data-pull backtest experiments train registry rollback promote flow up down
+.PHONY: help setup test data data-push data-pull backtest experiments train registry rollback promote flow export-model serve up down
 
 # MLflow sends usage telemetry by default; this project turns it off.
 export MLFLOW_DISABLE_TELEMETRY := true
@@ -59,3 +59,10 @@ up:  ## Start the local stack (MLflow on http://127.0.0.1:5050)
 
 down:  ## Stop the local stack (data stays in its volumes)
 	docker compose down
+
+export-model:  ## Export the champion from MLflow to models/champion and track it with DVC
+	uv run python -m carbon_intensity_forecast.export_model
+	uv run dvc add models/champion
+
+serve:  ## Run the API locally (model from the registry; needs `make up`)
+	MLFLOW_TRACKING_URI=http://127.0.0.1:5050 uv run uvicorn carbon_intensity_forecast.api:app --port 8000

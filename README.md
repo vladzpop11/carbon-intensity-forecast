@@ -1,8 +1,10 @@
 # Carbon Intensity Forecast
 
+[![CI](https://github.com/vladzpop11/carbon-intensity-forecast/actions/workflows/ci.yml/badge.svg)](https://github.com/vladzpop11/carbon-intensity-forecast/actions/workflows/ci.yml)
+
 Day-ahead forecasts of the carbon intensity of Great Britain's electricity (gCO₂/kWh, every half hour), built as an end-to-end MLOps pipeline: versioned data with contracts, orchestrated training, a model registry with promotion gates and rollback, and (in progress) a served API with monitoring that triggers retraining. The model is scored live against the forecast the grid operator (NESO) publishes a day ahead.
 
-Work in progress: stage 1 (the reproducible pipeline) is done. Stages 2 (API, compose, CI/CD, Kubernetes) and 3 (monitoring and retraining) follow.
+Work in progress: stages 1 (the reproducible pipeline) and 2 (API, compose, CI/CD, Kubernetes) are done; stage 3 (monitoring and retraining) follows.
 
 ## The task
 
@@ -60,18 +62,28 @@ make flow   (Prefect)
 
 **Promotion gates** ([train.py](src/carbon_intensity_forecast/train.py)): the challenger must beat the baseline by at least 30% and have a strictly lower error than the current champion on the same 28 holdout days. The comparison is kept fair: a champion trained before the window is compared as it is; one that has seen part of the window has its settings retrained on the challenger's data; a routine refresh of the champion's own settings with newer data passes. `make rollback` moves `champion` back to the version it replaced; `make promote VERSION=n` is a manual, recorded override.
 
+## Serving
+
+- **The API** ([api.py](src/carbon_intensity_forecast/api.py), [serving.py](src/carbon_intensity_forecast/serving.py)): `GET /forecast` returns the forecast issued at 09:00 UTC for the next day's 48 half hours. It fetches the live inputs, passes them through the same data contracts and the same feature code as training, and only uses what was published by 09:00, so asking later in the day gives the same answer. Results are cached per model version and issue day. Inputs that fail a contract give a 503, counted in the metrics. `GET /health`, `GET /metrics` (Prometheus).
+- **The model** is the registry's champion (`MODEL_URI=models:/carbon-intensity-day-ahead@champion`); the API checks every 10 minutes whether the alias has moved and loads the new champion. Where MLflow is not reachable (Kubernetes, CI) it serves the champion exported into the image (`make export-model`, versioned with DVC).
+- **`make up`** starts MLflow (:5050), the API (:8000), Prometheus (:9090) and Grafana (:3000), with Grafana's data source and dashboard provisioned from [monitoring/](monitoring/). Measured: 1.07 GB for the four, within Docker's 4 GB on this Mac.
+- **Kubernetes** ([k8s/](k8s/)): a kustomize base (non-root, read-only root filesystem, probes, limits) and a kind overlay. `make kind-up` creates a local cluster and deploys (cluster 54 s, rollout 23 s, 1.36 GB).
+- **CI** ([ci.yml](.github/workflows/ci.yml)): lint, tests and a dependency audit; then the image is built with the champion pulled from DagsHub, smoke-tested with a live forecast, deployed to a throwaway kind cluster, and published from `main` to [GHCR](https://github.com/vladzpop11/carbon-intensity-forecast/pkgs/container/carbon-intensity-forecast) (`docker pull ghcr.io/vladzpop11/carbon-intensity-forecast:latest`).
+
 ## How to run
 
 Python 3.12 via [uv](https://docs.astral.sh/uv/), Docker, and a `.env` with `DAGSHUB_USER` and `DAGSHUB_TOKEN` (never committed).
 
 ```bash
 make setup         # dependencies
-make up            # MLflow on http://127.0.0.1:5050 (docker compose)
-make data-pull     # the data version this commit points to (or `make data` for fresh data)
+make data-pull     # the data and the exported champion this commit points to
+make up            # MLflow :5050, API :8000, Prometheus :9090, Grafana :3000
 make test          # Ruff and pytest
 make backtest      # development backtest (reports/backtest.json)
 make flow          # the whole pipeline: ingest, validate, version, train, register
 make registry      # champion and challenger versions
+make export-model  # export the champion for the image (then `make data-push`)
+make kind-up       # deploy to a local kind cluster (stop compose first); make kind-down
 ```
 
 ## Mac notes

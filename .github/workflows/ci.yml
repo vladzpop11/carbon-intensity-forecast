@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      UV_LOCKED: "1"  # every uv command must match uv.lock exactly
+    steps:
+      # Actions are pinned by commit SHA.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
+        with:
+          version: "0.13.1"
+          enable-cache: true
+
+      - run: uv sync
+
+      - name: Audit installed dependencies for known vulnerabilities
+        run: |
+          uv pip freeze --exclude-editable > "$RUNNER_TEMP/requirements.txt"
+          # PYSEC-2026-2447 (diskcache, no fixed release): pickle in DVC's local cache, so it
+          # needs write access to that cache as the same user. DVC is a development tool and
+          # not part of the served image. See README, Security.
+          uvx pip-audit==2.10.1 --disable-pip --no-deps -r "$RUNNER_TEMP/requirements.txt" \
+            --ignore-vuln PYSEC-2026-2447
+
+      - run: make test
+
+  # Build the API image with the exported champion, check that it serves, deploy it to a
+  # throwaway Kubernetes cluster (kind), and publish it to GHCR from main.
+  image:
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    env:
+      UV_LOCKED: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
+        with:
+          version: "0.13.1"
+          enable-cache: true
+
+      # The champion folder is versioned with DVC on DagsHub, which needs a token even to
+      # read (repository secret DAGSHUB_TOKEN; its S3 endpoint takes it as key and secret).
+      - name: Pull the exported champion (DVC, DagsHub)
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.DAGSHUB_TOKEN }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DAGSHUB_TOKEN }}
+        run: |
+          if [ -z "$AWS_ACCESS_KEY_ID" ]; then
+            echo "::error::Repository secret DAGSHUB_TOKEN is not set"; exit 1
+          fi
+          uv sync
+          uv run dvc pull models/champion
+
+      - run: docker build -t carbon-forecast-api:dev .
+
+      - name: Smoke test the image (/health, then a live /forecast)
+        run: |
+          docker run -d --name api -p 127.0.0.1:8000:8000 carbon-forecast-api:dev
+          curl -sf --retry 30 --retry-connrefused --retry-delay 2 localhost:8000/health
+          echo
+          # The forecast calls the Carbon Intensity and Open-Meteo APIs; retry briefly.
+          curl -sf --retry 3 --retry-delay 20 --max-time 120 localhost:8000/forecast \
+            | python3 -c "import json,sys; d=json.load(sys.stdin); assert len(d['half_hours']) == 48; print(d['target_day'], 'model', d['model_version'])"
+          docker stop api
+
+      - uses: helm/kind-action@1544676c07bb3570fcb70166beaa07c4528fd4aa  # v1.15.1
+        with:
+          cluster_name: carbon
+          config: k8s/kind-config.yaml
+          wait: 180s
+
+      - name: Deploy to kind and check the rollout
+        run: |
+          kind load docker-image carbon-forecast-api:dev --name carbon
+          kubectl apply -k k8s/overlays/kind
+          kubectl -n carbon-forecast rollout status deployment/forecast-api --timeout=300s
+          kubectl -n carbon-forecast port-forward svc/forecast-api 8080:80 &
+          curl -sf --retry 20 --retry-connrefused --retry-delay 2 localhost:8080/health
+          echo
+
+      - name: Publish to GitHub Container Registry
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker tag carbon-forecast-api:dev "$IMAGE:${{ github.sha }}"
+          docker tag carbon-forecast-api:dev "$IMAGE:latest"
+          docker push "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:latest"

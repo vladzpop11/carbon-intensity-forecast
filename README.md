@@ -83,6 +83,13 @@ Built on a 2018 MacBook Air (2 cores, 8 GB, Docker limited to 4 GB):
 - **Prefect 3.9:** 3.8.8 accepts FastAPI 0.159, which breaks its local server.
 - **GitHub's scheduler can skip runs** (both slots on 22 October 2026), so the archive job has five idempotent slots.
 
+## Security
+
+- **Secrets:** the DagsHub token lives in `.env` locally (git ignores every `.env` variant) and in the repository secret `DAGSHUB_TOKEN` for CI; DVC receives it only for the command that needs it.
+- **Models** are stored in LightGBM's native text format, not as pickles: loading one never runs stored code.
+- **The API image** has no development tools, runs as a non-root user, and on Kubernetes with a read-only root filesystem and no Linux capabilities.
+- **CI audits** every installed dependency with `pip-audit`. One advisory is accepted: PYSEC-2026-2447 in `diskcache` (no fixed release), used by DVC's local cache. Exploiting it needs write access to that cache as the same user, and DVC is not in the served image.
+
 ## Licence
 
 Code: [MIT](LICENSE). Data: NESO Carbon Intensity API and Open-Meteo, both CC BY 4.0.

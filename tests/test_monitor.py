@@ -16,6 +16,7 @@ NOW = datetime(2026, 11, 20, 10, tzinfo=UTC)
 @pytest.fixture
 def engine(monkeypatch):
     monkeypatch.setenv("MONITORING_DATABASE_URL", "sqlite://")
+    monkeypatch.setattr(monitor, "last_training", lambda cfg: None)  # no training yet
     return db.engine(CFG)
 
 
@@ -30,12 +31,12 @@ def test_drift_direction_depends_on_the_test() -> None:
     assert monitor.drifted_columns(metrics) == ["a", "c"]
 
 
-def test_the_seasonal_reference_spans_years_and_leaves_a_gap() -> None:
+def test_the_seasonal_reference_is_the_same_season_in_earlier_years() -> None:
     days = pd.date_range("2024-03-09", "2026-10-31", freq="1D", tz="UTC")
     window = pd.date_range("2026-10-01", "2026-10-28", freq="1D", tz="UTC")
     ref = monitor.same_season_days(days, window, 45)
-    assert {d.year for d in ref} == {2024, 2025, 2026}
-    assert ref.max() < window[0] - pd.Timedelta("30D")
+    assert {d.year for d in ref} == {2024, 2025}  # not this year's late summer
+    assert ref.max() < window[0] - pd.Timedelta("300D")
     assert all(
         min(abs(d.dayofyear - window[14].dayofyear), 365 - abs(d.dayofyear - window[14].dayofyear))
         <= 45
@@ -96,12 +97,68 @@ def test_retraining_triggers(engine, monkeypatch, daily_mae, trained_through, tr
     assert got == trigger, row["reason"]
 
 
-def test_no_automatic_retraining_during_the_cooldown(engine, monkeypatch) -> None:
+def test_the_cooldown_runs_from_the_last_completed_training(engine, monkeypatch) -> None:
     monkeypatch.setattr(
         monitor, "champion", lambda cfg: (None, "3", pd.Timestamp("2026-10-01", tz="UTC"))
     )
     first, _ = monitor.decide(engine, CFG, NOW, {"share": 0.4, "detected": False})
-    second, row = monitor.decide(
-        engine, CFG, NOW.replace(day=22), {"share": 0.4, "detected": False}
+    assert first == "staleness"
+    # The training it started failed (no new version): the next day it tries again.
+    again, _ = monitor.decide(engine, CFG, NOW.replace(day=21), {"share": 0.4, "detected": False})
+    assert again == "staleness"
+    # A training completed (a version registered on the 21st): cooldown.
+    monkeypatch.setattr(monitor, "last_training",
+                        lambda cfg: pd.Timestamp("2026-11-21 10:00", tz="UTC"))  # fmt: skip
+    later, row = monitor.decide(engine, CFG, NOW.replace(day=22), {"share": 0.4, "detected": False})
+    assert later is None and "cooldown" in row["reason"]
+
+
+def test_a_complete_day_without_neso_is_scored_for_the_others(engine, monkeypatch) -> None:
+    put_forecasts(engine, "2026-11-01", {"model": 110.0, "baseline": 150.0, "neso": 105.0})
+    put_forecasts(engine, "2026-11-02", {"model": 120.0, "baseline": 150.0})  # no NESO archive
+    times = pd.date_range("2026-11-01", periods=96, freq="30min", tz="UTC")
+    monkeypatch.setattr(
+        monitor,
+        "fetch_intensity",
+        lambda *a: pd.DataFrame({"period_start": times, "actual": 100.0}),
     )
-    assert first == "staleness" and second is None and "cooldown" in row["reason"]
+    scores = monitor.score(engine, None, CFG, NOW)
+    day2 = scores[scores["target_day"].astype(str) == "2026-11-02"].set_index("method")
+    assert set(day2.index) == {"model", "baseline"} and day2.loc["model", "mae"] == 20.0
+
+
+def test_faulty_actual_values_are_not_scored_as_truth(engine, monkeypatch) -> None:
+    put_forecasts(engine, "2026-11-01", {"model": 110.0, "baseline": 150.0})
+    times = pd.date_range("2026-11-01", periods=48, freq="30min", tz="UTC")
+    actual = [100.0] * 47 + [0.0]  # an estimation outage reported as zero
+    monkeypatch.setattr(
+        monitor,
+        "fetch_intensity",
+        lambda *a: pd.DataFrame({"period_start": times, "actual": actual}),
+    )
+    assert monitor.score(engine, None, CFG, NOW).empty  # the day is now incomplete
+
+
+class Response:
+    def __init__(self, record):
+        self.status_code, self.record = 200, record
+
+    def raise_for_status(self):
+        pass
+
+    def json(self):
+        return self.record
+
+
+@pytest.mark.parametrize(
+    ("read_at", "method"), [("2026-11-01T09:20:00Z", "neso"), ("2026-11-01T12:03:19Z", "neso_late")]
+)
+def test_neso_read_late_is_kept_apart(engine, read_at, method) -> None:
+    put_forecasts(engine, "2026-11-02", {"model": 110.0})  # issue day 2026-11-01
+    periods = [{"from": f"{t:%Y-%m-%dT%H:%MZ}", "forecast": 100}
+               for t in pd.date_range("2026-11-02", periods=48, freq="30min")]  # fmt: skip
+    client = type("C", (), {"get": lambda self, url, timeout: Response(
+        {"fetched_at": read_at, "periods": periods})})()  # fmt: skip
+    monitor.neso(engine, client, CFG)
+    stored = db.read(engine, "select distinct method from forecasts where method like 'neso%'")
+    assert list(stored["method"]) == [method]

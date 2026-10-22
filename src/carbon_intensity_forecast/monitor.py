@@ -25,7 +25,8 @@ import pandas as pd
 from carbon_intensity_forecast import db, serving
 from carbon_intensity_forecast import features as F
 from carbon_intensity_forecast.config import load_config, project_path
-from carbon_intensity_forecast.ingest import fetch_intensity
+from carbon_intensity_forecast.ingest import Client, fetch_intensity
+from carbon_intensity_forecast.schemas import INTENSITY_LIMITS, ContractError, clean
 
 DAY = pd.Timedelta("1D")
 
@@ -42,11 +43,12 @@ NOT_DRIFT = {"slot", "lead_hours", "hour", "day_of_week", "bank_holiday", "seaso
 
 
 def champion(cfg: dict):
+    """-> (model, version, trained_through) of the champion, loaded by its exact version so
+    the version and the model cannot disagree."""
     name = cfg["registry"]["model_name"]
-    version = mlflow.MlflowClient().get_model_version_by_alias(name, "champion")
-    model = mlflow.pyfunc.load_model(f"models:/{name}@champion")
-    trained = pd.Timestamp(version.tags["trained_through"], tz="UTC")
-    return model, version.version, trained
+    v = mlflow.MlflowClient().get_model_version_by_alias(name, "champion")
+    model = mlflow.pyfunc.load_model(f"models:/{name}/{v.version}")
+    return model, v.version, pd.Timestamp(v.tags["trained_through"], tz="UTC")
 
 
 def issue(e, client: httpx.Client, cfg: dict, now: datetime) -> list[str]:
@@ -63,11 +65,14 @@ def issue(e, client: httpx.Client, cfg: dict, now: datetime) -> list[str]:
         if trained_through >= day:
             notes.append(f"{day:%Y-%m-%d}: skipped, the champion was trained through it")
             continue
-        intensity, weather = serving.live_inputs(client, cfg, day, now)
-        table = F.build(pd.DatetimeIndex([day]), intensity, weather, cfg)
-        table["model"] = np.asarray(model.predict(table[columns]), dtype=float)
+        try:  # the same path as the API, completeness contract included
+            intensity, weather = serving.live_inputs(client, cfg, day, now)
+            table = serving.predict(model, columns, cfg, day, intensity, weather)
+        except ContractError as exc:
+            notes.append(f"{day:%Y-%m-%d}: not issued, inputs refused ({exc}); retried next run")
+            continue
         rows = []
-        methods = [("model", "model", f"version {version}"),
+        methods = [("model", "forecast", f"version {version}"),
                    ("baseline", "same_time_latest", "same_time_latest")]  # fmt: skip
         for method, column, source in methods:
             part = table[["target_time", column]].dropna()
@@ -80,14 +85,14 @@ def issue(e, client: httpx.Client, cfg: dict, now: datetime) -> list[str]:
 
 
 def neso(e, client: httpx.Client, cfg: dict) -> list[str]:
-    """NESO's forecast for each issue day's target day, from the archive branch."""
-    have = set(db.read(e, "select distinct issue_day from forecasts where method = 'neso'")
-               ["issue_day"].astype(str))  # fmt: skip
+    """NESO's forecast for each issue day's target day, from the archive branch. It counts
+    as the day-ahead benchmark ("neso") only if it was read within neso_max_read_delay of the
+    issue time; a later read had hours more information and is kept as "neso_late"."""
     days = db.read(e, "select distinct issue_day from forecasts where method = 'model'")
+    late_after = pd.Timedelta(minutes=cfg["monitoring"]["neso_max_read_delay_minutes"])
+    issue_hour = pd.Timedelta(hours=cfg["task"]["issue_hour_utc"])
     notes = []
     for day in pd.to_datetime(days["issue_day"]):
-        if f"{day:%Y-%m-%d}" in have:
-            continue
         url = f"{cfg['monitoring']['neso_archive_url']}/{day:%Y/%m/%Y-%m-%d}.json"
         response = client.get(url, timeout=30)
         if response.status_code == 404:
@@ -95,21 +100,29 @@ def neso(e, client: httpx.Client, cfg: dict) -> list[str]:
             continue
         response.raise_for_status()
         record = response.json()
+        issue_time = day.tz_localize("UTC") + issue_hour
+        read_at = pd.Timestamp(record["fetched_at"])
+        method = "neso" if read_at <= issue_time + late_after else "neso_late"
         periods = pd.DataFrame(record["periods"])
         periods["target_time"] = pd.to_datetime(periods["from"], utc=True)
         target = day.tz_localize("UTC") + DAY
         inside = (periods["target_time"] >= target) & (periods["target_time"] < target + DAY)
         periods = periods[inside].dropna(subset=["forecast"])
+        with e.begin() as conn:  # one label per day, even if the rule changed since
+            conn.execute(db.FORECASTS.delete().where(
+                db.FORECASTS.c.issue_day == day.date(),
+                db.FORECASTS.c.method.in_(["neso", "neso_late"])))  # fmt: skip
         db.replace(e, db.FORECASTS, pd.DataFrame({
-            "issue_day": day.date(), "target_time": periods["target_time"], "method": "neso",
+            "issue_day": day.date(), "target_time": periods["target_time"], "method": method,
             "value": periods["forecast"].astype(float), "source": f"read {record['fetched_at']}",
         }))  # fmt: skip
-        notes.append(f"{day:%Y-%m-%d}: NESO forecast read at {record['fetched_at']}")
+        notes.append(f"{day:%Y-%m-%d}: NESO forecast read at {record['fetched_at']} ({method})")
     return notes
 
 
 def score(e, client: httpx.Client, cfg: dict, now: datetime) -> pd.DataFrame:
-    """Store the actual values of the forecast days and score each complete day."""
+    """Store the actual values of the forecast days (through the data contract) and score
+    each complete day on the half hours every method present that day covers."""
     span = db.read(e, "select min(target_time) as a, max(target_time) as b from forecasts")
     if span["a"].isna().all():
         return pd.DataFrame()
@@ -117,6 +130,9 @@ def score(e, client: httpx.Client, cfg: dict, now: datetime) -> pd.DataFrame:
     end = min(utc(span["b"].iloc[0]) + pd.Timedelta("30min"),
               pd.Timestamp(now).floor("30min")).to_pydatetime()  # fmt: skip
     actual = fetch_intensity(client, cfg["data"]["intensity_api"], start, end)
+    # Faults become missing values (that day is then not scored), never a refused batch: a
+    # short window with one fault must not stall monitoring.
+    actual, _ = clean(actual, {"actual": INTENSITY_LIMITS["actual"]}, max_share=1.0)
     db.replace(e, db.ACTUALS, actual[["period_start", "actual"]])
     joined = db.read(e, """
         select f.target_time, f.method, f.value, a.actual
@@ -131,7 +147,9 @@ def score(e, client: httpx.Client, cfg: dict, now: datetime) -> pd.DataFrame:
     for day, part in wide.groupby(level="target_day"):
         if len(part) < 48:  # the day is not complete yet
             continue
-        values = part["value"].dropna()  # half hours every method covers
+        values = part["value"].dropna(axis=1, how="all").dropna()  # methods present that day
+        if values.empty:
+            continue
         actual = part["actual"].iloc[:, 0].loc[values.index]
         for method in values.columns:
             rows.append({"target_day": day, "method": method, "half_hours": len(values),
@@ -143,12 +161,12 @@ def score(e, client: httpx.Client, cfg: dict, now: datetime) -> pd.DataFrame:
 
 def same_season_days(days: pd.DatetimeIndex, window: pd.DatetimeIndex,
                      season_days: int = 45) -> pd.DatetimeIndex:  # fmt: skip
-    """Days in `days` that fall within `season_days` of the window's middle calendar date in
-    any year, ending at least 30 days before the window."""
+    """Days in `days` within `season_days` of the window's middle calendar date in earlier
+    years (at least 300 days before the window, so never the same season of this year)."""
     middle = window[len(window) // 2].dayofyear
     gap = np.abs(days.dayofyear - middle)
     near = np.minimum(gap, 365 - gap) <= season_days
-    return days[near & (days < window[0] - pd.Timedelta("30D"))]
+    return days[near & (days < window[0] - pd.Timedelta("300D"))]
 
 
 def drifted_columns(metrics: dict) -> list[str]:
@@ -205,6 +223,15 @@ def drift(e, cfg: dict, now: datetime) -> dict:
     return row
 
 
+def last_training(cfg: dict) -> pd.Timestamp | None:
+    """When the newest model version was registered (None before the first)."""
+    name = cfg["registry"]["model_name"]
+    versions = mlflow.MlflowClient().search_model_versions(f"name='{name}'")
+    if not versions:
+        return None
+    return pd.Timestamp(max(v.creation_timestamp for v in versions), unit="ms", tz="UTC")
+
+
 def decide(e, cfg: dict, now: datetime, drift_row: dict) -> tuple[str | None, dict]:
     """The retraining triggers (configs/config.yaml, monitoring.retrain)."""
     r = cfg["monitoring"]["retrain"]
@@ -214,13 +241,14 @@ def decide(e, cfg: dict, now: datetime, drift_row: dict) -> tuple[str | None, di
     recent = scores.tail(r["rolling_days"])
     rolling = float(recent["mae"].mean()) if len(recent) else None
     age = (pd.Timestamp(now).normalize() - trained_through).days
-    last_retrain = db.read(e, "select max(run_at) as t from decisions where trigger is not null")
-    since = None if last_retrain["t"].isna().all() else (
-        pd.Timestamp(now) - utc(last_retrain["t"].iloc[0])).days  # fmt: skip
+    # The cooldown runs from the last completed training (a registered version), so a
+    # training that failed is retried the next day.
+    trained_at = last_training(cfg)
+    since = None if trained_at is None else (pd.Timestamp(now) - trained_at).days
     trigger, reason = None, "no trigger"
     enough = len(recent) >= r["min_scored_days"]
     if since is not None and since < r["cooldown_days"]:
-        reason = f"cooldown: last retraining {since} days ago"
+        reason = f"cooldown: last training {since} days ago"
     elif enough and rolling > r["max_mae_ratio"] * r["reference_mae"]:
         trigger = "performance"
         reason = f"rolling MAE {rolling:.1f} > {r['max_mae_ratio']} x {r['reference_mae']}"
@@ -242,7 +270,7 @@ def main(now: datetime | None = None) -> str | None:
     mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", cfg["mlflow"]["tracking_uri"]))
     now = now or datetime.now(UTC)
     e = db.engine(cfg)
-    with httpx.Client(headers={"Accept": "application/json"}) as client:
+    with Client() as client:
         for note in issue(e, client, cfg, now) + neso(e, client, cfg):
             print(note)
         scores = score(e, client, cfg, now)

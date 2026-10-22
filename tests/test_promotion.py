@@ -12,6 +12,7 @@ from carbon_intensity_forecast.config import load_config
 
 CFG = load_config()
 HOLDOUT_START = pd.Timestamp("2026-09-23", tz="UTC")
+LAST_DAY = pd.Timestamp("2026-10-20", tz="UTC")
 SETUP = {"params": {"objective": "regression_l1"}, "columns": ["a", "b"]}
 
 
@@ -43,15 +44,24 @@ def champion_trained_through(day: str, setup: dict):
 
 def test_no_champion() -> None:
     _, mae, how = train.compare_with_champion(StubClient(), "m", None, None, None,
-                                              HOLDOUT_START, SETUP)  # fmt: skip
+                                              HOLDOUT_START, SETUP, LAST_DAY)  # fmt: skip
     assert (mae, how) == (None, "no champion")
 
 
 def test_a_champion_that_saw_the_window_with_the_same_setup_is_a_refresh() -> None:
+    champion = champion_trained_through("2026-10-19", SETUP)
+    _, mae, how = train.compare_with_champion(StubClient(champion), "m", None, None, None,
+                                              HOLDOUT_START, SETUP, LAST_DAY)  # fmt: skip
+    assert (mae, how) == (None, "same setup (refresh)")
+    assert train.gates(20.0, 50.0, mae, CFG, how)["passed"]
+
+
+def test_a_refresh_without_newer_data_is_not_promoted() -> None:
     champion = champion_trained_through("2026-10-20", SETUP)
     _, mae, how = train.compare_with_champion(StubClient(champion), "m", None, None, None,
-                                              HOLDOUT_START, SETUP)  # fmt: skip
-    assert (mae, how) == (None, "same setup (refresh)")
+                                              HOLDOUT_START, SETUP, LAST_DAY)  # fmt: skip
+    assert how == "same setup, no newer data"
+    assert not train.gates(20.0, 50.0, mae, CFG, how)["passed"]
 
 
 def test_a_champion_that_saw_the_window_with_another_setup_is_retrained(monkeypatch) -> None:
@@ -65,7 +75,8 @@ def test_a_champion_that_saw_the_window_with_another_setup_is_retrained(monkeypa
 
     monkeypatch.setattr(train, "fit", fake_fit)
     rows = pd.DataFrame({"a": [1.0, 2.0], "actual": [90.0, 110.0]})
-    _, mae, how = train.compare_with_champion(StubClient(champion), "m", None, rows, None,
-                                              HOLDOUT_START, SETUP)  # fmt: skip
+    table = pd.DataFrame(columns=["a", "b"])
+    _, mae, how = train.compare_with_champion(StubClient(champion), "m", table, rows, None,
+                                              HOLDOUT_START, SETUP, LAST_DAY)  # fmt: skip
     assert how == "champion setup retrained" and mae == 10.0
     assert seen == {"params": other["params"], "columns": ["a"]}

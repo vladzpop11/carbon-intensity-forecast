@@ -55,7 +55,7 @@ def champion_setup(client: MlflowClient, version) -> dict:
 
 def compare_with_champion(client: MlflowClient, name: str, table: pd.DataFrame,
                           rows: pd.DataFrame, before: np.ndarray, holdout_start: pd.Timestamp,
-                          setup: dict) -> tuple:  # fmt: skip
+                          setup: dict, last_day: pd.Timestamp) -> tuple:  # fmt: skip
     """-> (champion version or None, its holdout MAE or None, how it was compared); see
     configs/config.yaml, registry.gates.beat_champion."""
     try:
@@ -63,29 +63,38 @@ def compare_with_champion(client: MlflowClient, name: str, table: pd.DataFrame,
     except MlflowException:
         return None, None, "no champion"
     trained_through = pd.Timestamp(champion.tags["trained_through"], tz="UTC")
-    if trained_through <= holdout_start - pd.Timedelta("2D"):  # no more data than the twin
-        model = mlflow.pyfunc.load_model(f"models:/{name}@champion")
+
+    def champion_model() -> float:
+        model = mlflow.pyfunc.load_model(f"models:/{name}/{champion.version}")
         columns = model.metadata.get_input_schema().input_names()
-        return champion, mae(model.predict(rows[columns]), rows["actual"]), "champion model"
+        return mae(model.predict(rows[columns]), rows["actual"])
+
+    if trained_through <= holdout_start - pd.Timedelta("2D"):  # no more data than the twin
+        return champion, champion_model(), "champion model"
     old = champion_setup(client, champion)
     if old == setup:
+        if trained_through >= last_day:
+            return champion, None, "same setup, no newer data"
         return champion, None, "same setup (refresh)"
+    if not set(old["columns"]) <= set(table.columns):  # its features no longer exist
+        return champion, champion_model(), "champion model (it has seen part of the window)"
     twin = fit(table, before, old["params"], old["columns"])
-    return (
-        champion,
-        mae(twin.predict(rows[old["columns"]]), rows["actual"]),
-        "champion setup retrained",
-    )
+    return champion, mae(twin.predict(rows[old["columns"]]), rows["actual"]), \
+        "champion setup retrained"  # fmt: skip
 
 
-def gates(twin: float, baseline: float, champion: float | None, cfg: dict) -> dict:
+def gates(twin: float, baseline: float, champion: float | None, cfg: dict,
+          compared: str = "") -> dict:  # fmt: skip
     """`champion` is None when there is no champion or the setup is the champion's own."""
     g = cfg["registry"]["gates"]
     skill = 1 - twin / baseline
     result = {"skill_vs_baseline": skill,
               "beats_baseline": skill >= g["min_skill_vs_baseline"]}  # fmt: skip
     if g["beat_champion"]:
-        result["beats_champion"] = True if champion is None else twin < champion
+        if compared == "same setup, no newer data":
+            result["beats_champion"] = False  # nothing new: keep the champion
+        else:
+            result["beats_champion"] = True if champion is None else twin < champion
     result["passed"] = all(v for k, v in result.items() if k.startswith("beats"))
     return result
 
@@ -112,17 +121,16 @@ def main() -> None:
     # As in the backtest: training targets end before the first holdout issue time.
     before = ((target_day < holdout_start - pd.Timedelta("1D")) & known).to_numpy()
 
-    rows = table.loc[holdout]
+    # Every method is scored on the same holdout half hours: those the baseline also covers.
+    rows = table.loc[holdout & table[reg["gates"]["baseline"]].notna().to_numpy()]
     twin = fit(table, before, params, columns)
     twin_mae = mae(twin.predict(rows[columns]), rows["actual"])
-    base_rows = rows[reg["gates"]["baseline"]].notna()
-    baseline_mae = mae(rows.loc[base_rows, reg["gates"]["baseline"]],
-                       rows.loc[base_rows, "actual"])  # fmt: skip
+    baseline_mae = mae(rows[reg["gates"]["baseline"]], rows["actual"])
     setup = {"params": params, "columns": columns}
     champion, champion_mae, compared = compare_with_champion(
-        client, name, table, rows, before, holdout_start, setup
+        client, name, table, rows, before, holdout_start, setup, last_day
     )
-    decision = gates(twin_mae, baseline_mae, champion_mae, cfg)
+    decision = gates(twin_mae, baseline_mae, champion_mae, cfg, compared)
     decision["champion_compared_as"] = compared
 
     final = fit(table, known.to_numpy(), params, columns)

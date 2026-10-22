@@ -4,7 +4,9 @@
   is not used at all. Ingestion stops and reports what failed.
 - Values: a value outside physical limits is a fault in the source (the API has some). It
   is set to missing and counted (clean()), unless faults exceed MAX_FAULT_SHARE of the
-  batch: then the feed itself is broken and the batch is refused.
+  batch's last 30 days: then the feed itself is broken and the batch is refused.
+- Completeness, for a live forecast (serving.require_complete): every input the model relies
+  on must be present, or the forecast is refused rather than made from gaps.
 
 Limits are physical, with a margin, not the observed range, so that a genuinely unusual
 day passes and only broken data fails.
@@ -14,6 +16,7 @@ import pandas as pd
 import pandera.pandas as pa
 
 MAX_FAULT_SHARE = 0.01
+FAULT_WINDOW_DAYS = 30
 
 
 class ContractError(ValueError):
@@ -79,18 +82,24 @@ def weather_schema(variables: list[str], leads: list[int]) -> pa.DataFrameSchema
     return pa.DataFrameSchema(columns, unique=["time", "point"], strict=True, coerce=True)
 
 
-def clean(frame: pd.DataFrame, limits: dict[str, tuple[float, float]]) -> tuple[pd.DataFrame, dict]:
+def clean(frame: pd.DataFrame, limits: dict[str, tuple[float, float]],
+          max_share: float = MAX_FAULT_SHARE) -> tuple[pd.DataFrame, dict]:  # fmt: skip
     """Set values outside `limits` to missing. -> (cleaned frame, faults per column with
     the times affected). Refuses the batch when faults exceed MAX_FAULT_SHARE of a column."""
     frame = frame.copy()
     faults = {}
     time_column = "period_start" if "period_start" in frame else "time"
+    # The share is judged on the most recent 30 days, so a broken stretch cannot hide in a
+    # long history (the full download covers 2018 to now).
+    recent = frame[time_column] >= frame[time_column].max() - pd.Timedelta(days=FAULT_WINDOW_DAYS)
     for column, (low, high) in limits.items():
         values = pd.to_numeric(frame[column], errors="coerce")
         bad = values.notna() & ((values < low) | (values > high))
-        if bad.mean() > MAX_FAULT_SHARE:
+        share = bad[recent].mean()
+        if share > max_share:
             raise ContractError(
-                f"{column}: {bad.mean():.1%} of values outside {low}-{high}: the feed is broken"
+                f"{column}: {share:.1%} of the last {FAULT_WINDOW_DAYS} days' values outside "
+                f"{low}-{high}: the feed is broken"
             )
         faults[column] = {
             "count": int(bad.sum()),

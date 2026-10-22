@@ -33,18 +33,28 @@ WEATHER_CHUNK = timedelta(days=92)
 ATTEMPTS = 4
 
 
+class Client(httpx.Client):
+    """An HTTP client with its own timeout and number of attempts: patient for the daily
+    download, brief for a live request."""
+
+    def __init__(self, timeout: float = 60.0, attempts: int = ATTEMPTS):
+        super().__init__(headers={"Accept": "application/json"}, timeout=timeout)
+        self.attempts = attempts
+
+
 def get(client: httpx.Client, url: str, params: dict | None = None) -> dict:
     """GET JSON with retries on network errors and 5xx/429 answers."""
-    for attempt in range(ATTEMPTS):
+    attempts = getattr(client, "attempts", ATTEMPTS)
+    for attempt in range(attempts):
         try:
-            response = client.get(url, params=params, timeout=60)
+            response = client.get(url, params=params)
             if response.status_code < 500 and response.status_code != 429:
                 response.raise_for_status()
                 return response.json()
         except httpx.TransportError:
-            if attempt == ATTEMPTS - 1:
+            if attempt == attempts - 1:
                 raise
-        if attempt == ATTEMPTS - 1:
+        if attempt == attempts - 1:
             response.raise_for_status()
         time.sleep(5 * 2**attempt)
     raise AssertionError("unreachable")
@@ -111,15 +121,16 @@ def main() -> None:
     raw = project_path(data["raw_dir"])
     raw.mkdir(parents=True, exist_ok=True)
     now = datetime.now(UTC).replace(minute=0, second=0, microsecond=0)
-    with httpx.Client(headers={"Accept": "application/json"}) as client:
+    with Client() as client:
         start = datetime.fromisoformat(data["intensity_start"]).replace(tzinfo=UTC)
         intensity = fetch_intensity(client, data["intensity_api"], start, now)
         returned = len(intensity)
         intensity = complete_grid(intensity, start, now)
         intensity, intensity_faults = clean(intensity, INTENSITY_LIMITS)
         intensity = INTENSITY.validate(intensity)
-        # Weather up to the end of tomorrow: forecasts for the next day exist already.
-        weather_end = (now + timedelta(days=2)).replace(hour=0)
+        # Weather through the hour after the end of tomorrow (a 23:30 target uses 00:00 too):
+        # forecasts for those hours exist already.
+        weather_end = (now + timedelta(days=3)).replace(hour=0)
         w = cfg["weather"]
         start = datetime.fromisoformat(w["start"]).replace(tzinfo=UTC)
         weather = fetch_weather(client, cfg, start, weather_end)

@@ -92,7 +92,12 @@ registry:
     #    - champion trained into the window (it has seen some of it): the champion's
     #      settings retrained on the same data as the challenger's twin;
     #    - same settings and features as the champion (a routine refresh with newer data):
-    #      passes, since it is the champion's own setup; gate 1 still applies.
+    #      passes, since it is the champion's own setup; gate 1 still applies. Without newer
+    #      data (trained through the same day) it fails: nothing would change (added
+    #      2026-10-22 after a review: version 2 had been promoted with version 1's data).
+    #    - the champion's features no longer exist: the champion model itself, although it
+    #      has seen part of the window (favours the champion).
+    #    All are scored on the holdout half hours the baseline also covers.
     beat_champion: true
 
 # Monitoring and retraining (make monitor), fixed before the first live scores (2026-10-22).
@@ -102,6 +107,10 @@ monitoring:
   database_url: postgresql+psycopg://forecast:forecast@127.0.0.1:5432/forecast   # compose
   neso_archive_url: https://raw.githubusercontent.com/vladzpop11/carbon-intensity-forecast/archive/neso
   first_live_issue_day: "2026-10-22"
+  # NESO's archived forecast counts as the day-ahead benchmark only if it was read within
+  # this many minutes after the issue time (09:00); a later read had hours more information
+  # and is kept apart as "neso_late". Added 2026-10-22, before any day was scored.
+  neso_max_read_delay_minutes: 60
   # Drift (Evidently), a diagnostic: the model's inputs over the last 28 issue days against
   # every earlier issue day within 45 days of the same calendar date (inputs follow the
   # seasons), per input with PSI (0.25 = a real shift). Changed 2026-10-22, before any live
@@ -125,5 +134,5 @@ monitoring:
     reference_mae: 20.65
     # 2. Staleness: the champion was trained through more than this many days ago.
     max_model_age_days: 28
-    # No automatic retraining within this many days of the last one.
+    # No automatic retraining within this many days of the last completed training.
     cooldown_days: 7

@@ -79,9 +79,10 @@ up: secrets  ## Start the stack: MLflow :5050, API :8000, Prometheus :9090, Graf
 down:  ## Stop the local stack (data stays in its volumes)
 	docker compose down
 
-export-model:  ## Export the champion from MLflow to models/champion and track it with DVC
+export-model:  ## Export the champion from MLflow to models/champion, track it with DVC and push it
 	uv run python -m carbon_intensity_forecast.export_model
 	uv run dvc add models/champion
+	$(WITH_DAGSHUB) uv run dvc push models/champion.dvc
 
 serve:  ## Run the API from source on :8001 (the compose API holds :8000; model from the registry)
 	MLFLOW_TRACKING_URI=http://127.0.0.1:5050 uv run uvicorn carbon_intensity_forecast.api:app --port 8001

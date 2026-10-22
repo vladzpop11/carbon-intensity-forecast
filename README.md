@@ -156,7 +156,7 @@ make backtest      # development backtest (reports/backtest.json)
 make registry      # champion and challenger versions
 make monitor       # issue, benchmark, score, drift, decide (the daily flow runs it)
 make daily         # the whole daily flow once
-make export-model  # export the champion for the image (then `make data-push`)
+make export-model  # export the champion for the image and push it with DVC
 make kind-up       # deploy to a local kind cluster (stop compose first); make kind-down
 ```
 

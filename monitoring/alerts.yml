@@ -1,0 +1,25 @@
+# Prometheus alert rules for the forecast API (visible at http://127.0.0.1:9090/alerts).
+# Forecast quality is judged daily by the monitoring flow (Grafana, "Forecast quality").
+groups:
+  - name: forecast-api
+    rules:
+      - alert: ForecastAPIDown
+        expr: up{job="api"} == 0
+        for: 5m
+        labels: {severity: critical}
+        annotations:
+          summary: The forecast API has not answered Prometheus for 5 minutes.
+          runbook: README, Runbook, "The API is down"
+      - alert: LiveInputsRefused
+        expr: increase(input_contract_failures_total[1h]) > 0
+        labels: {severity: warning}
+        annotations:
+          summary: Live inputs failed their data contracts; /forecast answers 503.
+          runbook: README, Runbook, "Live inputs refused"
+      - alert: ForecastSlow
+        expr: histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{handler="/forecast"}[15m]))) > 10
+        for: 15m
+        labels: {severity: warning}
+        annotations:
+          summary: The 95th-percentile /forecast latency is above 10 s.
+          runbook: README, Runbook, "Slow forecasts"

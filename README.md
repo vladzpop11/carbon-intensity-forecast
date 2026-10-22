@@ -2,9 +2,31 @@
 
 [![CI](https://github.com/vladzpop11/carbon-intensity-forecast/actions/workflows/ci.yml/badge.svg)](https://github.com/vladzpop11/carbon-intensity-forecast/actions/workflows/ci.yml)
 
-Day-ahead forecasts of the carbon intensity of Great Britain's electricity (gCO₂/kWh, every half hour), built as an end-to-end MLOps pipeline: versioned data with contracts, orchestrated training, a model registry with promotion gates and rollback, and (in progress) a served API with monitoring that triggers retraining. The model is scored live against the forecast the grid operator (NESO) publishes a day ahead.
+Day-ahead forecasts of the carbon intensity of Great Britain's electricity (gCO₂/kWh, every half hour), built as an end-to-end MLOps pipeline: versioned data with contracts, orchestrated training, a model registry with promotion gates and rollback, a served API on Docker and Kubernetes, and daily monitoring that scores every forecast once the actual values arrive and retrains when performance drops. The model is scored live against the forecast the grid operator (NESO) publishes a day ahead.
 
-Work in progress: stages 1 (the reproducible pipeline) and 2 (API, compose, CI/CD, Kubernetes) are done; stage 3 (monitoring and retraining) follows.
+```mermaid
+flowchart LR
+  subgraph sources[Public data]
+    CI[Carbon Intensity API]
+    OM[Open-Meteo weather forecasts]
+  end
+  GA[GitHub Action, daily:<br/>archive NESO's day-ahead forecast] --> AB[(archive branch)]
+  CI --> GA
+  subgraph compose[docker compose]
+    SCH[Prefect scheduler<br/>daily flow] -->|ingest, contracts| DVC[(DVC on DagsHub)]
+    SCH -->|train, gates| ML[(MLflow registry<br/>champion alias)]
+    SCH -->|forecasts, scores, drift| PG[(Postgres)]
+    API[FastAPI /forecast] -->|loads champion| ML
+    PR[Prometheus + alerts] -->|scrapes| API
+    GF[Grafana] --> PR
+    GF --> PG
+  end
+  sources --> SCH
+  sources --> API
+  AB --> SCH
+  GH[GitHub Actions CI] -->|test, build, kind deploy| GHCR[(GHCR image)]
+  DVC -->|champion| GH
+```
 
 ## The task
 
@@ -66,9 +88,52 @@ make flow   (Prefect)
 
 - **The API** ([api.py](src/carbon_intensity_forecast/api.py), [serving.py](src/carbon_intensity_forecast/serving.py)): `GET /forecast` returns the forecast issued at 09:00 UTC for the next day's 48 half hours. It fetches the live inputs, passes them through the same data contracts and the same feature code as training, and only uses what was published by 09:00, so asking later in the day gives the same answer. Results are cached per model version and issue day. Inputs that fail a contract give a 503, counted in the metrics. `GET /health`, `GET /metrics` (Prometheus).
 - **The model** is the registry's champion (`MODEL_URI=models:/carbon-intensity-day-ahead@champion`); the API checks every 10 minutes whether the alias has moved and loads the new champion. Where MLflow is not reachable (Kubernetes, CI) it serves the champion exported into the image (`make export-model`, versioned with DVC).
-- **`make up`** starts MLflow (:5050), the API (:8000), Prometheus (:9090) and Grafana (:3000), with Grafana's data source and dashboard provisioned from [monitoring/](monitoring/). Measured: 1.07 GB for the four, within Docker's 4 GB on this Mac.
+- **`make up`** starts MLflow (:5050), the API (:8000), Prometheus (:9090), Grafana (:3000), Postgres, the Prefect server (:4200) and the scheduler, with Grafana's data sources and dashboards provisioned from [monitoring/](monitoring/). Measured: about 1.5 GB for all seven, within Docker's 4 GB on this Mac.
 - **Kubernetes** ([k8s/](k8s/)): a kustomize base (non-root, read-only root filesystem, probes, limits) and a kind overlay. `make kind-up` creates a local cluster and deploys (cluster 54 s, rollout 23 s, 1.36 GB).
 - **CI** ([ci.yml](.github/workflows/ci.yml)): lint, tests and a dependency audit; then the image is built with the champion pulled from DagsHub, smoke-tested with a live forecast, deployed to a throwaway kind cluster, and published from `main` to [GHCR](https://github.com/vladzpop11/carbon-intensity-forecast/pkgs/container/carbon-intensity-forecast) (`docker pull ghcr.io/vladzpop11/carbon-intensity-forecast:latest`).
+
+## Monitoring and retraining
+
+Every day at 09:30 UTC the scheduler (compose) runs the daily flow ([flows.py](src/carbon_intensity_forecast/flows.py), [monitor.py](src/carbon_intensity_forecast/monitor.py)):
+
+1. **Ingest and version** the data (contracts, DVC push).
+2. **Issue:** store the champion's forecast and the baseline for every issue day without one. A forecast uses only what was published by 09:00 on its issue day, so a day missed while the machine was off is filled in later with the same result. A model never forecasts an issue day it was trained on.
+3. **Benchmark:** store NESO's day-ahead forecast as archived that morning.
+4. **Score:** once a target day's 48 actual values are in, the MAE of each method on the half hours they all cover.
+5. **Drift report** ([Evidently](https://www.evidentlyai.com), reports/drift/): the inputs of the last 28 issue days against the same season in earlier years.
+6. **Decide** (rules fixed in [config.yaml](configs/config.yaml) before the first live score): retrain when the rolling 14-day MAE exceeds 1.3 × the development MAE (26.8, with at least 7 scored days) or the champion was trained through more than 28 days ago; not within 7 days of the last retraining. The new model still has to pass the promotion gates; if it does, it is exported and pushed with DVC, and the API loads it within 10 minutes.
+
+**Grafana** ([monitoring/](monitoring/)): "Forecast quality" (daily and rolling MAE of the model, NESO and the baseline, forecasts against actual values, drift, every retraining decision) and "Forecast API" (traffic, latency, forecasts computed, contract failures, model version). **Prometheus alerts:** the API down for 5 minutes, live inputs refused, slow forecasts.
+
+**Why input drift does not trigger retraining** ([drift_history.py](src/carbon_intensity_forecast/drift_history.py), [reports/drift_history.json](reports/drift_history.json)). Over 18 past months, the share of inputs flagged as drifted (28-day windows):
+
+| Test | Reference | Months flagged (share ≥ 0.5) | Mean share |
+| --- | --- | --- | --- |
+| Evidently default (K-S / Wasserstein) | same days last year | 18 of 18 | 0.79 |
+| Evidently default | same season, earlier years | 18 of 18 | 0.87 |
+| PSI, 0.25 | same days last year | 13 of 18 | 0.54 |
+| PSI, 0.25 | same season, earlier years | 9 of 18 | 0.48 |
+
+With over a thousand autocorrelated half hours, the default significance tests flag everything. PSI measures the size of a shift, but even then a windy month differs from last year's, and weather is exactly what the model takes as input. The drift share did not track the model's monthly error (correlation −0.16). Ground truth arrives within a day here, so performance is measured directly, and drift stays a diagnostic: it currently shows carbon intensity itself drifting down as the grid decarbonises.
+
+## Runbook
+
+- **Performance trigger fired:** in Grafana, check whether NESO's error rose on the same days (an unusual grid, not the model) or only the model's. Check [reports/data_quality.json](reports/data_quality.json) and the drift report for the inputs that moved. The retraining it started is gated: if the challenger does not pass, the champion stays, and the decision is in the "Retraining decisions" panel.
+- **A new champion looks wrong:** `make rollback` moves `champion` back to the version it replaced; the API follows within 10 minutes. `make promote VERSION=n` sets any version by hand. Both are recorded on the versions.
+- **Live inputs refused** (alert, /forecast answers 503): a source broke its contract (impossible values or broken structure). The API log and `make data` show which check failed. Nothing is served from bad inputs; it recovers by itself when the source does.
+- **The API is down:** `docker compose ps`, `docker compose logs api`. It needs MLflow at start (compose waits for it to be healthy).
+- **Slow forecasts:** the first request of each day fetches both sources; the rest come from the cache. Check the sources' response times.
+- **The scheduler missed days** (machine off): nothing to do. On start it runs the daily flow, which fills in every missed issue day.
+- **The archive Action did not run:** it has five slots between 09:05 and 11:45 UTC; if all fail, run it from the Actions tab. A day archived later records the time it was read.
+
+## Decisions
+
+- **A direct model, not mlforecast:** one issue time a day and targets 15–39 hours ahead are simplest as one row per (issue day, target) with the lead as a feature, and easy to check for hindsight.
+- **NESO's forecast archived by GitHub Actions:** it cannot be recovered later, and a scheduled Action runs even when the laptop is off.
+- **Prefect, not Airflow:** a laptop with 4 GB for Docker; the Prefect server and scheduler take about 750 MB.
+- **MLflow on SQLite:** one user; the registry, aliases and artifacts are served over HTTP, so clients need no database or storage credentials.
+- **The champion inside the image for Kubernetes and CI:** they cannot reach the local MLflow server; the exported folder is versioned with DVC.
+- **Performance, not drift, triggers retraining:** above.
 
 ## How to run
 
@@ -77,11 +142,14 @@ Python 3.12 via [uv](https://docs.astral.sh/uv/), Docker, and a `.env` with `DAG
 ```bash
 make setup         # dependencies
 make data-pull     # the data and the exported champion this commit points to
-make up            # MLflow :5050, API :8000, Prometheus :9090, Grafana :3000
+make up            # MLflow :5050, API :8000, Prometheus :9090, Grafana :3000, Prefect :4200,
+                   # Postgres; the scheduler runs the daily flow now and at 09:30 UTC
 make test          # Ruff and pytest
 make backtest      # development backtest (reports/backtest.json)
 make flow          # the whole pipeline: ingest, validate, version, train, register
 make registry      # champion and challenger versions
+make monitor       # issue, benchmark, score, drift, decide (the daily flow runs it)
+make daily         # the whole daily flow once
 make export-model  # export the champion for the image (then `make data-push`)
 make kind-up       # deploy to a local kind cluster (stop compose first); make kind-down
 ```

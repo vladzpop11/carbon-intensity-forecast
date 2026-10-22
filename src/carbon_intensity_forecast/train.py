@@ -26,10 +26,9 @@ from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
 
 from carbon_intensity_forecast import features as F
-from carbon_intensity_forecast.artifacts import write_json
+from carbon_intensity_forecast.artifacts import provenance, write_json
 from carbon_intensity_forecast.backtest import fit, mae
 from carbon_intensity_forecast.config import load_config, project_path
-from carbon_intensity_forecast.experiments import provenance
 
 EXPERIMENT = "production-training"
 

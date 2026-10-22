@@ -33,17 +33,18 @@ services:
     restart: unless-stopped
 
   # Monitoring store: live forecasts, NESO's archived forecasts, scores and drift, read by
-  # Grafana. Local only (bound to 127.0.0.1).
+  # Grafana through a SELECT-only role. Passwords come from .env (make secrets); local only.
   postgres:
     image: postgres:17-alpine
     environment:
       POSTGRES_USER: forecast
-      POSTGRES_PASSWORD: forecast
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run make secrets}
       POSTGRES_DB: forecast
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./monitoring/postgres/roles.sql:/etc/roles.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U forecast -d forecast"]
       interval: 5s
@@ -57,7 +58,12 @@ services:
     image: carbon-forecast-api:dev
     environment:
       MODEL_URI: models:/carbon-intensity-day-ahead@champion
+      FALLBACK_MODEL_URI: /app/models/champion   # the export inside the image
       MLFLOW_TRACKING_URI: http://mlflow:5000
+      # Fail fast when MLflow is down (the client default retries for about 4 minutes).
+      MLFLOW_HTTP_REQUEST_TIMEOUT: "5"
+      MLFLOW_HTTP_REQUEST_MAX_RETRIES: "0"
+    mem_limit: 512m
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
@@ -80,11 +86,13 @@ services:
       - api
     restart: unless-stopped
 
-  # Data source and dashboards are provisioned from monitoring/grafana. Bound to this
-  # machine only; anonymous visitors can view.
+  # Data sources and dashboards are provisioned from monitoring/grafana. Bound to this
+  # machine only; anonymous visitors can view; the admin password is in .env.
   grafana:
     image: grafana/grafana:13.2.4
     environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?run make secrets}
+      GRAFANA_DB_PASSWORD: ${GRAFANA_DB_PASSWORD:?run make secrets}
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
       GF_ANALYTICS_REPORTING_ENABLED: "false"
@@ -119,19 +127,32 @@ services:
       start_period: 60s
     restart: unless-stopped
 
-  # The project folder is mounted: the flow reads and writes data/, models/ and reports/,
-  # runs DVC with the token in .env, and records the git commit of the checkout.
+  # The flow writes data/, models/, reports/ and DVC's state; the code, the configuration
+  # and git (for the commit it records) are mounted read-only. Runs as a non-root user; the
+  # DagsHub token arrives in its environment, .env itself is not mounted.
   scheduler:
     build:
       context: .
       target: pipeline
     image: carbon-forecast-pipeline:dev
+    user: "1000:1000"
     environment:
       PREFECT_API_URL: http://prefect-server:4200/api
       MLFLOW_TRACKING_URI: http://mlflow:5000
-      MONITORING_DATABASE_URL: postgresql+psycopg://forecast:forecast@postgres:5432/forecast
+      MONITORING_DATABASE_URL: postgresql+psycopg://forecast:${POSTGRES_PASSWORD:?run make secrets}@postgres:5432/forecast
+      DAGSHUB_TOKEN: ${DAGSHUB_TOKEN:?set in .env}
+    mem_limit: 1536m
     volumes:
-      - .:/project
+      - ./data:/project/data
+      - ./models:/project/models
+      - ./reports:/project/reports
+      - ./.dvc:/project/.dvc
+      - ./.dvcignore:/project/.dvcignore:ro
+      - ./src:/project/src:ro
+      - ./configs:/project/configs:ro
+      - ./pyproject.toml:/project/pyproject.toml:ro
+      - ./uv.lock:/project/uv.lock:ro
+      - ./.git:/project/.git:ro
     depends_on:
       mlflow:
         condition: service_healthy

@@ -1,6 +1,6 @@
 # Saves NESO's published day-ahead carbon intensity forecast every day, to the `archive`
-# branch (archive/{neso,weather}/YYYY/MM/YYYY-MM-DD.json), with the weather forecasts the
-# model uses. The Carbon Intensity API only keeps the
+# branch (archive/{neso,weather,intensity}/YYYY/MM/YYYY-MM-DD.json), with the model's
+# inputs as published then (weather forecasts, recent actual values). The Carbon Intensity API only keeps the
 # latest revision of each forecast, so the day-ahead one has to be saved when it is issued:
 # it is the benchmark the project's own day-ahead model is scored against.
 # GitHub may start scheduled runs late or skip them (on 2026-10-22 neither of two slots
@@ -34,27 +34,39 @@ jobs:
           path: code
           persist-credentials: false
 
+      # The token travels as an HTTP header, never in a URL that git would store.
       - name: Check out the archive branch (created on the first run)
         env:
-          REPO: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
+          TOKEN: ${{ github.token }}
+          REPO: https://github.com/${{ github.repository }}
         run: |
-          if git ls-remote --exit-code --heads "$REPO" archive >/dev/null; then
-            git clone --depth 1 --branch archive "$REPO" archive
+          auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$TOKEN" | base64 -w0)"
+          for attempt in 1 2 3; do
+            heads=$(git -c http.extraheader="$auth" ls-remote --heads "$REPO" archive) && break
+            [ "$attempt" = 3 ] && exit 1; sleep 20
+          done
+          if [ -n "$heads" ]; then
+            git -c http.extraheader="$auth" clone --depth 1 --branch archive "$REPO" archive
           else
             git init -b archive archive
           fi
 
-      - name: Read today's forecast
+      - name: Read today's forecasts and inputs
         run: PYTHONPATH=code/src python3 -m carbon_intensity_forecast.archive archive
 
-      - name: Commit it
+      # Runs even if one snapshot failed, so the others are kept.
+      - name: Commit what was read
+        if: always()
         env:
-          REPO: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}
+          TOKEN: ${{ github.token }}
+          REPO: https://github.com/${{ github.repository }}
         run: |
+          [ -d archive ] || exit 0
           cd archive
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           if git diff --cached --quiet; then echo "nothing new"; exit 0; fi
-          git commit -q -m "NESO forecast issued $(date -u +%F)"
-          git push "$REPO" HEAD:archive
+          git commit -q -m "Archived $(date -u +%F): NESO forecast and model inputs"
+          auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$TOKEN" | base64 -w0)"
+          git -c http.extraheader="$auth" push "$REPO" HEAD:archive

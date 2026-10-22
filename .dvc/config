@@ -1,5 +1,5 @@
 [core]
-    autostage = true
+    autostage = false
     remote = dagshub
 ['remote "dagshub"']
     url = s3://dvc

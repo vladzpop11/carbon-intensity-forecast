@@ -51,7 +51,7 @@
       "id": 2,
       "type": "stat",
       "title": "NESO day-ahead MAE, same days",
-      "description": "",
+      "description": "Only NESO forecasts read within an hour of the 09:00 issue time count (later reads are 'neso_late').",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "monitoring"
@@ -127,7 +127,7 @@
       "gridPos": {
         "x": 18,
         "y": 0,
-        "w": 6,
+        "w": 3,
         "h": 4
       },
       "targets": [
@@ -326,6 +326,58 @@
         "overrides": []
       },
       "options": {}
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Hours since the last monitoring run",
+      "description": "The daily flow runs at 09:30 UTC; red after 26 hours means it has stopped (README, Runbook).",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "monitoring"
+      },
+      "gridPos": {
+        "x": 21,
+        "y": 0,
+        "w": 3,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "monitoring"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "select extract(epoch from now() - max(run_at)) / 3600 as hours from decisions"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 26
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background"
+      }
     }
   ]
 }

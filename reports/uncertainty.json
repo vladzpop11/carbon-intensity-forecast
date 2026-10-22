@@ -1,0 +1,54 @@
+{
+  "git_commit": "d59508186030b5e5a3d2a335172f54039fdc8f44",
+  "git_dirty": "True",
+  "data_md5": "45bd2430160a9407622325ed4cfedb37.dir",
+  "method": "2000 resamples of whole target days, 95% percentile intervals",
+  "development": {
+    "days": 457,
+    "model_mae": 20.653543910341444,
+    "model_mae_ci95": [
+      19.707603406095945,
+      21.617973532130964
+    ],
+    "skill_vs_baseline": 0.5536124444747419,
+    "skill_ci95": [
+      0.521346318279595,
+      0.5831957336275706
+    ]
+  },
+  "final_test": {
+    "days": 273,
+    "model_mae": 21.119105039527504,
+    "model_mae_ci95": [
+      19.888321024420527,
+      22.404223368241475
+    ],
+    "skill_vs_baseline": 0.5189932252403893,
+    "skill_ci95": [
+      0.47475349377503456,
+      0.5611198062424135
+    ]
+  },
+  "development_same_months_as_final_test": {
+    "days": 273,
+    "model_mae": 19.584386099736832,
+    "model_mae_ci95": [
+      18.526585890349132,
+      20.73055067683373
+    ],
+    "skill_vs_baseline": 0.5436769611199399,
+    "skill_ci95": [
+      0.5041415639414376,
+      0.5819123661763037
+    ]
+  },
+  "l1_gain_over_original_setting": {
+    "mae_gain": 0.3465183302104471,
+    "ci95": [
+      0.035983174905974656,
+      0.6686595802385972
+    ],
+    "months_l1_better": 8,
+    "months": 15
+  }
+}

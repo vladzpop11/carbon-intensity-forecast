@@ -13,6 +13,8 @@ import os
 import pandas as pd
 import sqlalchemy as sa
 
+from carbon_intensity_forecast.config import env_value
+
 METADATA = sa.MetaData()
 FORECASTS = sa.Table(
     "forecasts", METADATA,
@@ -55,7 +57,13 @@ DECISIONS = sa.Table(
 
 
 def engine(cfg: dict) -> sa.Engine:
-    url = os.environ.get("MONITORING_DATABASE_URL", cfg["monitoring"]["database_url"])
+    """MONITORING_DATABASE_URL if set (compose, tests), else the configured URL with the
+    password from .env (POSTGRES_PASSWORD)."""
+    url = os.environ.get("MONITORING_DATABASE_URL")
+    if not url:
+        url = sa.make_url(cfg["monitoring"]["database_url"]).set(
+            password=env_value("POSTGRES_PASSWORD")
+        )
     e = sa.create_engine(url)
     METADATA.create_all(e)
     return e
@@ -66,7 +74,10 @@ def replace(e: sa.Engine, table: sa.Table, frame: pd.DataFrame) -> None:
     if frame.empty:
         return
     keys = [c.name for c in table.primary_key.columns]
-    rows = frame[[c.name for c in table.columns]].to_dict("records")
+    # Missing values as SQL NULL: Postgres would otherwise store a float NaN, which
+    # "is not null" lets through.
+    frame = frame[[c.name for c in table.columns]].astype(object)
+    rows = frame.where(frame.notna(), None).to_dict("records")
     with e.begin() as conn:
         for row in rows:
             conn.execute(sa.delete(table).where(*[table.c[k] == row[k] for k in keys]))

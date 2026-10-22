@@ -1,6 +1,7 @@
 """Monitoring: drift parsing, the seasonal reference, scoring complete days, and the
-retraining decision (SQLite in memory instead of Postgres; no MLflow, no network)."""
+retraining decision (no MLflow, no network)."""
 
+import os
 from datetime import UTC, datetime
 
 import pandas as pd
@@ -13,11 +14,19 @@ CFG = load_config()
 NOW = datetime(2026, 11, 20, 10, tzinfo=UTC)
 
 
-@pytest.fixture
-def engine(monkeypatch):
-    monkeypatch.setenv("MONITORING_DATABASE_URL", "sqlite://")
+# SQLite in memory always; Postgres too when TEST_DATABASE_URL is set (CI runs a service).
+DATABASES = ["sqlite://"] + ([os.environ["TEST_DATABASE_URL"]]
+                             if os.environ.get("TEST_DATABASE_URL") else [])  # fmt: skip
+
+
+@pytest.fixture(params=DATABASES, ids=lambda url: url.split(":")[0])
+def engine(request, monkeypatch):
+    monkeypatch.setenv("MONITORING_DATABASE_URL", request.param)
     monkeypatch.setattr(monitor, "last_training", lambda cfg: None)  # no training yet
-    return db.engine(CFG)
+    e = db.engine(CFG)
+    db.METADATA.drop_all(e)  # a clean database for every test
+    db.METADATA.create_all(e)
+    return e
 
 
 def test_drift_direction_depends_on_the_test() -> None:

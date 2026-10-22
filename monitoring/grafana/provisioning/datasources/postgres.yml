@@ -4,11 +4,11 @@ datasources:
     uid: monitoring
     type: grafana-postgresql-datasource
     url: postgres:5432
-    user: forecast
+    user: grafana_reader   # SELECT only (monitoring/postgres/roles.sql)
     jsonData:
       database: forecast
       sslmode: disable
       postgresVersion: 1700
     secureJsonData:
-      password: forecast   # local-only database (see docker-compose.yml)
+      password: $GRAFANA_DB_PASSWORD   # from .env (make secrets)
     editable: false

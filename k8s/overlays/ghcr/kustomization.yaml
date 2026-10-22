@@ -1,0 +1,15 @@
+# The image CI publishes. Pin newTag to a commit SHA (ghcr.io/...:<sha>) for a deployment
+# that does not change under you; `latest` follows main.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources: [../../base]
+images:
+  - name: forecast-api
+    newName: ghcr.io/vladzpop11/carbon-intensity-forecast
+    newTag: latest
+patches:
+  - target: {kind: Deployment, name: forecast-api}
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Always

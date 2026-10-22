@@ -9,30 +9,15 @@ python -m carbon_intensity_forecast.experiments  -> reports/experiments.json
 """
 
 import os
-import subprocess
 
 import mlflow
-import yaml
 
 from carbon_intensity_forecast import features as F
-from carbon_intensity_forecast.artifacts import write_json
+from carbon_intensity_forecast.artifacts import provenance, write_json
 from carbon_intensity_forecast.backtest import build_table, months, run
 from carbon_intensity_forecast.config import load_config, project_path
 
 EXPERIMENT = "development-backtest"
-
-
-def provenance() -> dict:
-    def git(*args: str) -> str:
-        done = subprocess.run(["git", *args], capture_output=True, text=True,
-                              cwd=project_path("."), check=True)  # fmt: skip
-        return done.stdout.strip()
-
-    commit = git("rev-parse", "HEAD")
-    # The DVC pointer changes with every pipeline run; the data version is data_md5.
-    dirty = git("status", "--porcelain", "--untracked-files=no", "--", ".", ":!data/raw.dvc")
-    data = yaml.safe_load(project_path("data/raw.dvc").read_text())["outs"][0]["md5"]
-    return {"git_commit": commit, "git_dirty": str(bool(dirty)), "data_md5": data}
 
 
 def choose(results: dict[str, float], margin: float) -> str:

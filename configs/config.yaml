@@ -104,7 +104,7 @@ registry:
 # Live forecasts are scored once a target day's actual values are complete, next to NESO's
 # archived day-ahead forecast and the baseline.
 monitoring:
-  database_url: postgresql+psycopg://forecast:forecast@127.0.0.1:5432/forecast   # compose
+  database_url: postgresql+psycopg://forecast@127.0.0.1:5432/forecast   # password: .env
   neso_archive_url: https://raw.githubusercontent.com/vladzpop11/carbon-intensity-forecast/archive/neso
   first_live_issue_day: "2026-10-22"
   # NESO's archived forecast counts as the day-ahead benchmark only if it was read within

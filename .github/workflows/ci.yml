@@ -18,6 +18,18 @@ jobs:
     timeout-minutes: 30
     env:
       UV_LOCKED: "1"  # every uv command must match uv.lock exactly
+      # The monitoring tests also run against Postgres (the service below).
+      TEST_DATABASE_URL: postgresql+psycopg://forecast:test@127.0.0.1:5432/forecast
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: forecast
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: forecast
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U forecast" --health-interval 5s --health-retries 20
     steps:
       # Actions are pinned by commit SHA.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -40,15 +52,35 @@ jobs:
 
       - run: make test
 
-  # Build the API image with the exported champion, check that it serves, deploy it to a
-  # throwaway Kubernetes cluster (kind), and publish it to GHCR from main.
+      - name: Check the compose file and the Prometheus alert rules
+        env:  # placeholders: only the file's structure is checked
+          POSTGRES_PASSWORD: x
+          GRAFANA_DB_PASSWORD: x
+          GRAFANA_ADMIN_PASSWORD: x
+          DAGSHUB_TOKEN: x
+        run: |
+          docker compose config -q
+          docker run --rm --entrypoint promtool -v "$PWD/monitoring:/m:ro" \
+            prom/prometheus:v3.15.0 check rules /m/alerts.yml
+
+  # The scheduler's image (the pipeline stage), which nothing else builds.
+  pipeline-image:
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - run: docker build --target pipeline -t carbon-forecast-pipeline:ci .
+      - run: >-
+          docker run --rm --entrypoint python carbon-forecast-pipeline:ci
+          -c "import prefect, dvc, evidently, sqlalchemy; print('pipeline imports ok')"
+
+  # Build the API image with the exported champion, check that it serves, and deploy it to a
+  # throwaway Kubernetes cluster (kind).
   image:
     needs: check
     runs-on: ubuntu-24.04
     timeout-minutes: 45
-    permissions:
-      contents: read
-      packages: write
     env:
       UV_LOCKED: "1"
     steps:
@@ -92,7 +124,7 @@ jobs:
           config: k8s/kind-config.yaml
           wait: 180s
 
-      - name: Deploy to kind and check the rollout
+      - name: Deploy to kind and check the rollout and a forecast
         run: |
           kind load docker-image carbon-forecast-api:dev --name carbon
           kubectl apply -k k8s/overlays/kind
@@ -100,14 +132,44 @@ jobs:
           kubectl -n carbon-forecast port-forward svc/forecast-api 8080:80 &
           curl -sf --retry 20 --retry-all-errors --retry-delay 2 localhost:8080/health
           echo
+          curl -sf --retry 3 --retry-all-errors --retry-delay 20 --max-time 120 localhost:8080/forecast \
+            | python3 -c "import json,sys; d=json.load(sys.stdin); assert len(d['half_hours']) == 48; print('kind:', d['target_day'])"
 
-      - name: Publish to GitHub Container Registry
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  # Publishing is a separate job: only it can write packages, and only on main.
+  publish:
+    needs: [image, pipeline-image]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    env:
+      UV_LOCKED: "1"
+      IMAGE: ghcr.io/${{ github.repository }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884  # v10.3.0
+        with:
+          version: "0.13.1"
+          enable-cache: true
+
+      - name: Pull the exported champion (DVC, DagsHub)
         env:
-          IMAGE: ghcr.io/${{ github.repository }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.DAGSHUB_TOKEN }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DAGSHUB_TOKEN }}
         run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-          docker tag carbon-forecast-api:dev "$IMAGE:${{ github.sha }}"
-          docker tag carbon-forecast-api:dev "$IMAGE:latest"
-          docker push "$IMAGE:${{ github.sha }}"
+          uv sync
+          uv run dvc pull models/champion
+
+      - name: Build and publish to GitHub Container Registry
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+          SHA: ${{ github.sha }}
+        run: |
+          docker build -t "$IMAGE:$SHA" -t "$IMAGE:latest" .
+          echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          docker push "$IMAGE:$SHA"
           docker push "$IMAGE:latest"

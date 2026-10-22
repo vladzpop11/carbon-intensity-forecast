@@ -22,33 +22,36 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev
 
 # --- pipeline stage (compose `scheduler`): the daily Prefect flow --------------------
-# All dependency groups (Prefect, DVC, Evidently), git for provenance; the code is read
-# from the project folder mounted at /project, so it always matches the checkout.
+# The pipeline dependency group (Prefect, DVC, Evidently; no test tools), git for
+# provenance; the code is read from folders mounted at /project, so it matches the checkout.
 FROM ${PYTHON_IMAGE} AS pipeline
 COPY --from=uv /uv /usr/local/bin/uv
 RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 git \
     && rm -rf /var/lib/apt/lists/* \
-    && git config --system --add safe.directory /project
+    && git config --system --add safe.directory /project \
+    && useradd --create-home --uid 1000 app
 ENV UV_PROJECT_ENVIRONMENT=/opt/venv UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy \
     UV_PYTHON_DOWNLOADS=never
 WORKDIR /build
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --locked --no-install-project
+    uv sync --locked --no-install-project --no-default-groups --group pipeline
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONPATH=/project/src \
     PYTHONUNBUFFERED=1 \
     MLFLOW_DISABLE_TELEMETRY=true \
     MLFLOW_DISABLE_AGENT_HINT=1
 WORKDIR /project
+USER app
 CMD ["python", "-m", "carbon_intensity_forecast.flows", "serve"]
 
 # --- runtime stage (the API; the default build target) --------------------------------
 FROM ${PYTHON_IMAGE}
-# LightGBM needs the OpenMP runtime.
+# LightGBM needs the OpenMP runtime; pip is not needed at run time.
 RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && python -m pip uninstall -y -q pip
 RUN useradd --create-home --uid 1000 app
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \

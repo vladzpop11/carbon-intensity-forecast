@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 
 from carbon_intensity_forecast import features as F
-from carbon_intensity_forecast.artifacts import write_json
+from carbon_intensity_forecast.artifacts import provenance, write_json
 from carbon_intensity_forecast.config import load_config, project_path
 
 
@@ -123,7 +123,7 @@ def main() -> None:
     predictions.to_csv(out.with_name(out.stem + "_predictions.csv"), index=False,
                        date_format="%Y-%m-%dT%H:%M:%SZ")  # fmt: skip
     record = {"run_at": f"{datetime.now(UTC):%Y-%m-%dT%H:%M:%SZ}", "months": key,
-              "model": cfg["model"], **result}  # fmt: skip
+              **provenance(), "model": cfg["model"], **result}  # fmt: skip
     if revisions:
         record["revisions"] = revisions
     write_json(out, record)

@@ -5,15 +5,19 @@ intensity forecast and the weather forecasts the model uses.
   just before that half hour. A day-ahead model can only be compared fairly with the
   forecast NESO had published a day ahead, so it has to be saved when it is published.
 - Weather: the model's inputs exactly as Open-Meteo served them at the issue time (latest
-  run and fixed-lead forecasts for the next UTC day), so that live forecasts can be
-  reproduced and the downloaded history checked against what was really available.
+  run and fixed-lead forecasts for the next UTC day and the hour after it), so that live
+  forecasts can be reproduced and the downloaded history checked against what was really
+  available.
+- Intensity: the actual values of the last 9 days as published at the issue time (they are
+  revised later), for the same reason.
 
 A scheduled GitHub Action (.github/workflows/archive.yml) runs this every day. Standard
 library only, so the Action needs no installs.
 
 python -m carbon_intensity_forecast.archive OUT_DIR
--> OUT_DIR/{neso,weather}/YYYY/MM/YYYY-MM-DD.json for the issue day (UTC); existing files
-   are kept.
+-> OUT_DIR/{neso,weather,intensity}/YYYY/MM/YYYY-MM-DD.json for the issue day (UTC);
+   existing files are kept. Each is attempted even if another fails; the exit status is 1
+   if any failed, after the others are written.
 """
 
 import json
@@ -62,6 +66,7 @@ def weather_snapshot(now: datetime) -> dict:
     """Hourly weather forecasts for the next UTC day at every point, as served at `now`:
     the latest run (day0) and the fixed-lead ones the model is trained on."""
     day = (now + timedelta(days=1)).strftime("%Y-%m-%d")
+    after = (now + timedelta(days=2)).strftime("%Y-%m-%d")
     names = list(WEATHER["points"])
     leads = [0, *WEATHER["leads"]]
     hourly = [f"{v}_previous_day{k}" for v in WEATHER["variables"] for k in leads]
@@ -69,14 +74,14 @@ def weather_snapshot(now: datetime) -> dict:
         "latitude": ",".join(str(WEATHER["points"][n][0]) for n in names),
         "longitude": ",".join(str(WEATHER["points"][n][1]) for n in names),
         "start_date": day,
-        "end_date": day,
+        "end_date": after,
         "hourly": ",".join(hourly),
         "timezone": "UTC",
     })  # fmt: skip
     answer = get_json(f"{WEATHER['api']}?{query}")
     points = {name: location["hourly"] for name, location in zip(names, answer, strict=True)}
-    if any(len(p["time"]) != 24 for p in points.values()):
-        raise ValueError("expected 24 hours per point")
+    if any(len(p["time"]) != 48 for p in points.values()):
+        raise ValueError("expected 48 hours per point")
     return {
         "source": WEATHER["api"],
         "licence": "CC BY 4.0, Open-Meteo",
@@ -86,17 +91,38 @@ def weather_snapshot(now: datetime) -> dict:
     }
 
 
+def intensity_snapshot(now: datetime) -> dict:
+    """The actual values of the last 9 days, as published at `now`."""
+    start = now - timedelta(days=9)
+    data = get_json(f"{NESO_API}/intensity/{start:%Y-%m-%dT%H:%MZ}/{now:%Y-%m-%dT%H:%MZ}")["data"]
+    return {
+        "source": f"{NESO_API}/intensity/{{now - 9 days}}/{{now}}",
+        "licence": "CC BY 4.0, National Energy System Operator (NESO)",
+        "fetched_at": f"{now:%Y-%m-%dT%H:%M:%SZ}",
+        "periods": [{"from": d["from"], "actual": d["intensity"].get("actual")} for d in data],
+    }
+
+
 def main(out_dir: str) -> None:
     now = datetime.now(UTC)
-    for kind, take in [("neso", neso_snapshot), ("weather", weather_snapshot)]:
+    failed = []
+    for kind, take in [("neso", neso_snapshot), ("weather", weather_snapshot),
+                       ("intensity", intensity_snapshot)]:  # fmt: skip
         path = Path(out_dir) / kind / f"{now:%Y/%m/%Y-%m-%d}.json"
         if path.exists():
             print(f"{path} exists: already archived today")
             continue
-        record = take(now)
+        try:
+            record = take(now)
+        except Exception as exc:  # noqa: BLE001 - keep the others; fail at the end
+            print(f"{kind}: failed: {exc!r}", file=sys.stderr)
+            failed.append(kind)
+            continue
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(record, indent=1) + "\n")
         print(f"{path}: read at {record['fetched_at']}")
+    if failed:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

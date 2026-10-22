@@ -14,6 +14,7 @@ spec:
     metadata:
       labels: {app: forecast-api}
     spec:
+      automountServiceAccountToken: false   # the API never talks to the Kubernetes API
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -27,13 +28,18 @@ spec:
           env:
             - {name: MODEL_URI, value: /app/models/champion}
             - {name: HOME, value: /tmp}
+          # Loading the model takes a few seconds; until then neither other probe runs.
+          startupProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 5
+            failureThreshold: 24
           readinessProbe:
             httpGet: {path: /health, port: http}
-            initialDelaySeconds: 5
             periodSeconds: 10
+          # Liveness only checks that the server accepts connections: a slow upstream API
+          # (requests waiting on it) must not get the pod restarted.
           livenessProbe:
-            httpGet: {path: /health, port: http}
-            initialDelaySeconds: 30
+            tcpSocket: {port: http}
             periodSeconds: 20
             failureThreshold: 3
           resources:
@@ -46,4 +52,4 @@ spec:
           volumeMounts:
             - {name: tmp, mountPath: /tmp}
       volumes:
-        - {name: tmp, emptyDir: {}}
+        - {name: tmp, emptyDir: {sizeLimit: 64Mi}}

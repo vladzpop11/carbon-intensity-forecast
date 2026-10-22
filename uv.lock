@@ -334,6 +334,7 @@ wheels = [
 name = "carbon-intensity-forecast"
 version = "0.1.0"
 source = { editable = "." }
+default-groups = ["dev", "pipeline"]
 dependencies = [
     { name = "fastapi" },
     { name = "holidays" },
@@ -351,14 +352,16 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "dvc", extra = ["s3"] },
-    { name = "evidently" },
     { name = "httpx2" },
     { name = "pre-commit" },
-    { name = "prefect" },
-    { name = "psycopg", extra = ["binary"] },
     { name = "pytest" },
     { name = "ruff" },
+]
+pipeline = [
+    { name = "dvc", extra = ["s3"] },
+    { name = "evidently" },
+    { name = "prefect" },
+    { name = "psycopg", extra = ["binary"] },
     { name = "scikit-learn" },
     { name = "sqlalchemy" },
 ]
@@ -381,14 +384,16 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "dvc", extras = ["s3"], specifier = ">=3.67" },
-    { name = "evidently", specifier = ">=0.7.23,<0.8" },
     { name = "httpx2", specifier = ">=2.16.0" },
     { name = "pre-commit", specifier = ">=4.7.0" },
-    { name = "prefect", specifier = ">=3.9,<3.10" },
-    { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "ruff", specifier = ">=0.17.1" },
+]
+pipeline = [
+    { name = "dvc", extras = ["s3"], specifier = ">=3.67" },
+    { name = "evidently", specifier = ">=0.7.23,<0.8" },
+    { name = "prefect", specifier = ">=3.9,<3.10" },
+    { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
     { name = "scikit-learn", specifier = ">=1.9" },
     { name = "sqlalchemy", specifier = ">=2" },
 ]

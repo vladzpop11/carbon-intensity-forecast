@@ -34,6 +34,8 @@ def utc(value) -> pd.Timestamp:
     """A timestamp from the database in UTC (Postgres returns it aware, SQLite naive)."""
     t = pd.Timestamp(value)
     return t.tz_localize("UTC") if t.tzinfo is None else t.tz_convert("UTC")
+
+
 # Inputs worth watching for drift: weather and recent carbon intensity, not the calendar.
 NOT_DRIFT = {"slot", "lead_hours", "hour", "day_of_week", "bank_holiday", "season_sin",
              "season_cos", "weather_lead_days"}  # fmt: skip

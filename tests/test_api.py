@@ -123,3 +123,22 @@ def test_the_latest_issue_day_switches_after_09_15_utc() -> None:
     day = pd.Timestamp("2026-10-22", tz="UTC")
     assert serving.latest_issue_day(day + pd.Timedelta("9h14min"), cfg) == day - pd.Timedelta("1D")
     assert serving.latest_issue_day(day + pd.Timedelta("9h15min"), cfg) == day
+
+
+def test_the_api_leaves_the_fallback_once_the_registry_answers(monkeypatch) -> None:
+    loaded = []
+
+    def fake_load(uri):
+        loaded.append(uri)
+        if uri.startswith("models:/") and len(loaded) == 1:
+            raise ConnectionError("MLflow not up yet")
+        return api.Snapshot(object(), "3", ["a"], None, uri)
+
+    monkeypatch.setattr(api, "load_snapshot", fake_load)
+    monkeypatch.setattr(api, "model_info", lambda uri: (uri, "3", None))
+    monkeypatch.setattr(api, "RELOAD_SECONDS", 0)
+    served = api.ServedModel("models:/m@champion", "/app/models/champion")
+    assert served.snapshot.uri == "/app/models/champion"
+    served.stop.wait = lambda timeout: len(loaded) > 2  # one check, then stop
+    served.watch()
+    assert served.snapshot.uri == "models:/m@champion"  # same version, now from the registry

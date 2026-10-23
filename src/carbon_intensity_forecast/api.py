@@ -127,7 +127,9 @@ class ServedModel:
         while not self.stop.wait(RELOAD_SECONDS):
             try:
                 _, version, _ = model_info(self.uri)
-                if version != self.snapshot.version:
+                # Also leave the fallback once the registry answers (after a restart Docker
+                # starts the API before MLflow), even if the versions are the same.
+                if version != self.snapshot.version or self.snapshot.uri != self.uri:
                     self.snapshot = load_snapshot(self.uri)
                     MODEL_VERSION.set(float(version))
                     log.info("now serving model version %s", version)

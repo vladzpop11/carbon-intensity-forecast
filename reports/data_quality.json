@@ -1,11 +1,11 @@
 {
-  "downloaded_at": "2026-10-22T14:35:19Z",
+  "downloaded_at": "2026-10-23T18:04:29Z",
   "intensity": {
-    "half_hours": 154396,
+    "half_hours": 154452,
     "first": "2018-01-01 00:00:00+00:00",
-    "last": "2026-10-22 13:30:00+00:00",
+    "last": "2026-10-23 17:30:00+00:00",
     "not_returned_by_the_api": 179,
-    "without_actual": 810,
+    "without_actual": 811,
     "faults_set_to_missing": {
       "actual": {
         "count": 6,
@@ -42,7 +42,7 @@
     }
   },
   "weather": {
-    "rows": 230640,
+    "rows": 230880,
     "points": 10,
     "missing_values": {
       "wind_speed_100m_day1": 0,

@@ -14,6 +14,7 @@
 python -m carbon_intensity_forecast.monitor   (needs Postgres and MLflow: make up)
 """
 
+import json
 import os
 from datetime import UTC, datetime
 
@@ -86,25 +87,40 @@ def issue(e, client: httpx.Client, cfg: dict, now: datetime) -> list[str]:
     return notes
 
 
+def neso_reads(client: httpx.Client, cfg: dict, day: pd.Timestamp) -> list[dict]:
+    """Every saved read of NESO's forecast for one issue day: the local snapshot and the
+    GitHub archive."""
+    path = f"{day:%Y/%m/%Y-%m-%d}.json"
+    reads = []
+    local = project_path(cfg["monitoring"]["local_archive_dir"]) / "neso" / path
+    if local.exists():
+        reads.append(json.loads(local.read_text()))
+    response = client.get(f"{cfg['monitoring']['neso_archive_url']}/{path}", timeout=30)
+    if response.status_code != 404:
+        response.raise_for_status()
+        reads.append(response.json())
+    return reads
+
+
 def neso(e, client: httpx.Client, cfg: dict) -> list[str]:
-    """NESO's forecast for each issue day's target day, from the archive branch. It counts
-    as the day-ahead benchmark ("neso") only if it was read within neso_max_read_delay of the
-    issue time; a later read had hours more information and is kept as "neso_late"."""
+    """NESO's forecast for each issue day's target day: of the saved reads, the one closest
+    to the issue time. It counts as the day-ahead benchmark ("neso") only if read within
+    neso_read_window_minutes of it; otherwise it is kept as "neso_late" or "neso_early"."""
     days = db.read(e, "select distinct issue_day from forecasts where method = 'model'")
-    late_after = pd.Timedelta(minutes=cfg["monitoring"]["neso_max_read_delay_minutes"])
+    window = pd.Timedelta(minutes=cfg["monitoring"]["neso_read_window_minutes"])
     issue_hour = pd.Timedelta(hours=cfg["task"]["issue_hour_utc"])
     notes = []
     for day in pd.to_datetime(days["issue_day"]):
-        url = f"{cfg['monitoring']['neso_archive_url']}/{day:%Y/%m/%Y-%m-%d}.json"
-        response = client.get(url, timeout=30)
-        if response.status_code == 404:
+        issue_time = day.tz_localize("UTC") + issue_hour
+        reads = neso_reads(client, cfg, day)
+        if not reads:
             notes.append(f"{day:%Y-%m-%d}: no NESO archive")
             continue
-        response.raise_for_status()
-        record = response.json()
-        issue_time = day.tz_localize("UTC") + issue_hour
-        read_at = pd.Timestamp(record["fetched_at"])
-        method = "neso" if read_at <= issue_time + late_after else "neso_late"
+        record = min(reads, key=lambda r: abs(pd.Timestamp(r["fetched_at"]) - issue_time))
+        offset = pd.Timestamp(record["fetched_at"]) - issue_time
+        method = (
+            "neso" if abs(offset) <= window else "neso_late" if offset > window else "neso_early"
+        )
         periods = pd.DataFrame(record["periods"])
         periods["target_time"] = pd.to_datetime(periods["from"], utc=True)
         target = day.tz_localize("UTC") + DAY
@@ -113,7 +129,7 @@ def neso(e, client: httpx.Client, cfg: dict) -> list[str]:
         with e.begin() as conn:  # one label per day, even if the rule changed since
             conn.execute(db.FORECASTS.delete().where(
                 db.FORECASTS.c.issue_day == day.date(),
-                db.FORECASTS.c.method.in_(["neso", "neso_late"])))  # fmt: skip
+                db.FORECASTS.c.method.in_(["neso", "neso_late", "neso_early"])))  # fmt: skip
         db.replace(e, db.FORECASTS, pd.DataFrame({
             "issue_day": day.date(), "target_time": periods["target_time"], "method": method,
             "value": periods["forecast"].astype(float), "source": f"read {record['fetched_at']}",

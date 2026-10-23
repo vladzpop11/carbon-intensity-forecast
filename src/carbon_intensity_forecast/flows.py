@@ -14,9 +14,10 @@ by writing that checksum into data/raw.dvc. The flows do not commit to git.
 Needs MLflow and Postgres (make up) and DagsHub credentials in .env.
 
 python -m carbon_intensity_forecast.flows [training|daily|serve]
-  serve: run `daily` now (catching up on days missed while the machine was off; a failure is
-  logged and does not stop the schedule), then every day at 09:30 UTC, after NESO's forecast
-  is archived, one run at a time (needs a Prefect server).
+  serve: catch up (a snapshot if it is near 09:00 UTC; `daily`, which fills in days missed
+  while the machine was off; failures are logged and do not stop the schedule), then every
+  day: `snapshot` at 09:00 UTC and `daily` at 09:30 UTC, one run of each at a time (needs a
+  Prefect server).
 """
 
 import json
@@ -24,15 +25,17 @@ import logging
 import os
 import subprocess
 import sys
+from datetime import UTC, datetime, timedelta
 
 import mlflow
 import yaml
-from prefect import flow, get_run_logger, task
+from prefect import flow, get_run_logger, serve, task
 
-from carbon_intensity_forecast import export_model, ingest, monitor, train
+from carbon_intensity_forecast import archive, export_model, ingest, monitor, train
 from carbon_intensity_forecast.config import env_value, load_config, project_path
 
 DAILY_CRON = "30 9 * * *"
+SNAPSHOT_CRON = "0 9 * * *"  # NESO's forecast and the inputs, as published at the issue time
 
 
 def dvc(*args: str) -> None:
@@ -55,6 +58,9 @@ def version_data() -> str:
     """Track the new data/raw with DVC and push it to the remote; -> its checksum."""
     dvc("add", "data/raw")
     dvc("push", "data/raw.dvc")
+    if project_path("data/archive").exists():
+        dvc("add", "data/archive")
+        dvc("push", "data/archive.dvc")
     return yaml.safe_load(project_path("data/raw.dvc").read_text())["outs"][0]["md5"]
 
 
@@ -88,6 +94,19 @@ def publish_champion() -> str:
     return f"exported and pushed version {champion}"
 
 
+@flow(name="snapshot", log_prints=True)
+def snapshot() -> None:
+    """Save what is published at the issue time (archive.py) to the local archive, as the
+    GitHub Action does; GitHub's scheduler can start hours late, this one runs on time
+    whenever the machine is on. The folder is versioned with DVC by the daily flow."""
+    out = project_path(load_config()["monitoring"]["local_archive_dir"])
+    try:
+        archive.main(str(out))
+    except SystemExit as exc:
+        if exc.code:
+            raise RuntimeError("a snapshot failed (the others were saved)") from exc
+
+
 @flow(name="training", log_prints=True)
 def training() -> None:
     ingest_and_validate()
@@ -115,10 +134,22 @@ def daily() -> None:
 if __name__ == "__main__":
     command = sys.argv[1] if len(sys.argv) > 1 else "training"
     if command == "serve":
-        try:  # catch up first: monitoring fills in every missed issue day
-            daily()
-        except Exception:  # noqa: BLE001 - logged; the schedule must start regardless
-            logging.getLogger(__name__).exception("the catch-up run failed; serving anyway")
-        daily.serve(name="daily", cron=DAILY_CRON, limit=1)  # one run at a time
+        log = logging.getLogger(__name__)
+        now = datetime.now(UTC)
+        issue_time = now.replace(hour=load_config()["task"]["issue_hour_utc"], minute=0,
+                                 second=0, microsecond=0)  # fmt: skip
+        # Catch up first. A snapshot is only worth taking near the issue time; monitoring
+        # fills in every missed issue day. Failures are logged; the schedule starts anyway.
+        near_issue_time = abs(now - issue_time) <= timedelta(hours=1)
+        for name, run, wanted in [("snapshot", snapshot, near_issue_time), ("daily", daily, True)]:
+            if wanted:
+                try:
+                    run()
+                except Exception:  # noqa: BLE001
+                    log.exception("the catch-up %s run failed; serving anyway", name)
+        serve(
+            snapshot.to_deployment(name="snapshot", cron=SNAPSHOT_CRON, concurrency_limit=1),
+            daily.to_deployment(name="daily", cron=DAILY_CRON, concurrency_limit=1),
+        )
     else:
         {"training": training, "daily": daily}[command]()

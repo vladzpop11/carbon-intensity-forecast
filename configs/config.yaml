@@ -107,10 +107,14 @@ monitoring:
   database_url: postgresql+psycopg://forecast@127.0.0.1:5432/forecast   # password: .env
   neso_archive_url: https://raw.githubusercontent.com/vladzpop11/carbon-intensity-forecast/archive/neso
   first_live_issue_day: "2026-10-22"
-  # NESO's archived forecast counts as the day-ahead benchmark only if it was read within
-  # this many minutes after the issue time (09:00); a later read had hours more information
-  # and is kept apart as "neso_late". Added 2026-10-22, before any day was scored.
-  neso_max_read_delay_minutes: 60
+  # NESO's forecast counts as the day-ahead benchmark only if it was read within this many
+  # minutes of the issue time (09:00), either side: later it had more information, earlier
+  # less. Other reads are kept apart as "neso_late" / "neso_early". Of all the reads saved
+  # for a day (the local scheduler's 09:00 snapshot, the GitHub archive), the one closest to
+  # 09:00 is used. Added 2026-10-22 and made two-sided 2026-10-23, before any day was scored
+  # (GitHub ran that day's archive slots five hours late).
+  neso_read_window_minutes: 60
+  local_archive_dir: data/archive   # the scheduler's own snapshots (versioned with DVC)
   # Drift (Evidently), a diagnostic: the model's inputs over the last 28 issue days against
   # every earlier issue day within 45 days of the same calendar date (inputs follow the
   # seasons), per input with PSI (0.25 = a real shift). Changed 2026-10-22, before any live

@@ -159,18 +159,33 @@ class Response:
         return self.record
 
 
-@pytest.mark.parametrize(
-    ("read_at", "method"), [("2026-11-01T09:20:00Z", "neso"), ("2026-11-01T12:03:19Z", "neso_late")]
-)
-def test_neso_read_late_is_kept_apart(engine, read_at, method) -> None:
-    put_forecasts(engine, "2026-11-02", {"model": 110.0})  # issue day 2026-11-01
+def neso_record(read_at):
     periods = [{"from": f"{t:%Y-%m-%dT%H:%MZ}", "forecast": 100}
                for t in pd.date_range("2026-11-02", periods=48, freq="30min")]  # fmt: skip
-    client = type("C", (), {"get": lambda self, url, timeout: Response(
-        {"fetched_at": read_at, "periods": periods})})()  # fmt: skip
-    monitor.neso(engine, client, CFG)
-    stored = db.read(engine, "select distinct method from forecasts where method like 'neso%'")
-    assert list(stored["method"]) == [method]
+    return {"fetched_at": read_at, "periods": periods}
+
+
+@pytest.mark.parametrize(
+    ("local", "github", "method", "read"),
+    [(None, "2026-11-01T09:20:00Z", "neso", "09:20"),
+     (None, "2026-11-01T14:08:11Z", "neso_late", "14:08"),         # GitHub started late
+     (None, "2026-11-01T07:30:00Z", "neso_early", "07:30"),        # less information
+     ("2026-11-01T09:00:05Z", "2026-11-01T14:08:11Z", "neso", "09:00")],  # local wins
+)  # fmt: skip
+def test_the_read_closest_to_the_issue_time_is_used(engine, tmp_path, local, github, method,
+                                                    read) -> None:  # fmt: skip
+    put_forecasts(engine, "2026-11-02", {"model": 110.0})  # issue day 2026-11-01
+    cfg = {**CFG, "monitoring": {**CFG["monitoring"], "local_archive_dir": str(tmp_path)}}
+    if local:
+        path = tmp_path / "neso" / "2026" / "11" / "2026-11-01.json"
+        path.parent.mkdir(parents=True)
+        path.write_text(__import__("json").dumps(neso_record(local)))
+    client = type("C", (), {"get": lambda self, url, timeout: Response(neso_record(github))})()
+    monitor.neso(engine, client, cfg)
+    stored = db.read(
+        engine, "select distinct method, source from forecasts where method like 'neso%'"
+    )
+    assert stored["method"].tolist() == [method] and read in stored["source"].iloc[0]
 
 
 def test_a_day_the_source_never_completes_is_reported(engine, monkeypatch) -> None:

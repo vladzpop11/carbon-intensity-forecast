@@ -188,7 +188,6 @@ Built on a 2018 MacBook Air (2 cores, 8 GB, Docker limited to 4 GB):
 - **Regime shifts.** June 2026 shows the model can be biased for weeks (mean error −27, skill 28%, below the 30% promotion gate, so no challenger would have been promoted). The model has no inputs for power-station outages, interconnector flows or demand; ten weather points stand in for the whole of Great Britain; training data starts in March 2024.
 - **Point forecasts only,** for the national average, on UTC days; no uncertainty band per half hour.
 - **The retraining rules and the refresh gate are untested in live use;** they have unit tests, not history.
-- **The served champion (version 3) was trained from uncommitted code** (its git_dirty tag is True; the code differed only by work in progress at that commit). The next training records a clean commit.
 - **Runs on one laptop.** The daily flow needs Docker running; missed days are filled in later. GitHub disables scheduled workflows in repositories without activity for 60 days, which would stop the archive.
 
 ## Licence

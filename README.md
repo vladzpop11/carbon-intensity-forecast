@@ -130,7 +130,7 @@ With over a thousand autocorrelated half hours, the default significance tests f
 - **Slow forecasts:** the first request of each day fetches both sources; the rest come from the cache. Check the sources' response times.
 - **The scheduler missed days** (machine off): nothing to do. On start it runs the daily flow, which fills in every missed issue day. If that run fails, the error is in `docker compose logs scheduler` and the schedule continues.
 - **The daily flow stopped** (Grafana's "hours since the last monitoring run" is red): `docker compose logs scheduler`; the Prefect UI (:4200) shows each run and the failing task.
-- **The archive Action did not run:** it has five slots between 09:05 and 11:45 UTC; if all fail, run it from the Actions tab. A day archived later records the time it was read.
+- **The archive Action did not run, or ran late:** it runs every 30 minutes from 02:30 to 09:30 UTC (GitHub starts them hours late) and keeps the read closest to 09:00; the scheduler also takes its own 09:00 snapshot when the machine is on. A day with no read within an hour of 09:00 has no valid NESO benchmark ("neso_late"/"neso_early").
 
 ## Decisions
 
@@ -168,7 +168,7 @@ Built on a 2018 MacBook Air (2 cores, 8 GB, Docker limited to 4 GB):
 - **MLflow server:** `MLFLOW_SERVER_ENABLE_JOB_EXECUTION=false` and `--workers 1` (1.1 GB otherwise; 364 MB with both), host port 5050 (AirPlay holds 5000).
 - **Models are logged in LightGBM's native format** (the booster), not as a pickle: loading a model never runs stored code.
 - **Prefect 3.9:** 3.8.8 accepts FastAPI 0.159, which breaks its local server.
-- **GitHub's scheduler can skip runs** (both slots on 22 October 2026), so the archive job has five idempotent slots.
+- **GitHub's scheduler is unreliable for exact times:** it skipped both slots on 22 October 2026 and started them 4–5 hours late on 23 and 24 October. The archive job therefore runs every 30 minutes from 02:30 UTC and keeps the read closest to 09:00, and the local scheduler takes its own 09:00 snapshot.
 
 ## Security
 

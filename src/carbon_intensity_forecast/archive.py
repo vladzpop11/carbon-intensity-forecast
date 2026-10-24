@@ -15,9 +15,10 @@ A scheduled GitHub Action (.github/workflows/archive.yml) runs this every day. S
 library only, so the Action needs no installs.
 
 python -m carbon_intensity_forecast.archive OUT_DIR
--> OUT_DIR/{neso,weather,intensity}/YYYY/MM/YYYY-MM-DD.json for the issue day (UTC);
-   existing files are kept. Each is attempted even if another fails; the exit status is 1
-   if any failed, after the others are written.
+-> OUT_DIR/{neso,weather,intensity}/YYYY/MM/YYYY-MM-DD.json for the issue day (UTC). It
+   runs many times a morning (GitHub starts scheduled runs hours late); the read closest to
+   09:00 UTC is kept. Each kind is attempted even if another fails; the exit status is 1 if
+   any failed, after the others are written.
 """
 
 import json
@@ -31,6 +32,7 @@ from pathlib import Path
 NESO_API = "https://api.carbonintensity.org.uk"
 WEATHER = json.loads((Path(__file__).resolve().parents[2] / "configs/weather.json").read_text())
 ATTEMPTS = 4
+ISSUE_HOUR_UTC = 9  # task.issue_hour_utc in configs/config.yaml (a test keeps them equal)
 
 
 def get_json(url: str) -> dict | list:
@@ -103,14 +105,26 @@ def intensity_snapshot(now: datetime) -> dict:
     }
 
 
-def main(out_dir: str) -> None:
-    now = datetime.now(UTC)
+def distance(fetched_at: str, now: datetime) -> timedelta:
+    """How far a read is from the day's issue time."""
+    read = datetime.strptime(fetched_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+    return abs(read - now.replace(hour=ISSUE_HOUR_UTC, minute=0, second=0, microsecond=0))
+
+
+def main(out_dir: str, now: datetime | None = None) -> None:
+    """Keep, for each kind and day, the read closest to the issue time: a new read replaces
+    the saved one only if it is closer (the times of all reads are listed in "reads_at")."""
+    now = now or datetime.now(UTC)
     failed = []
     for kind, take in [("neso", neso_snapshot), ("weather", weather_snapshot),
                        ("intensity", intensity_snapshot)]:  # fmt: skip
         path = Path(out_dir) / kind / f"{now:%Y/%m/%Y-%m-%d}.json"
-        if path.exists():
-            print(f"{path} exists: already archived today")
+        saved = json.loads(path.read_text()) if path.exists() else None
+        stamp = f"{now:%Y-%m-%dT%H:%M:%SZ}"
+        if saved and distance(saved["fetched_at"], now) <= distance(stamp, now):
+            saved["reads_at"] = [*saved.get("reads_at", [saved["fetched_at"]]), stamp]
+            path.write_text(json.dumps(saved, indent=1) + "\n")
+            print(f"{path}: kept the read at {saved['fetched_at']} (closer to the issue time)")
             continue
         try:
             record = take(now)
@@ -118,6 +132,8 @@ def main(out_dir: str) -> None:
             print(f"{kind}: failed: {exc!r}", file=sys.stderr)
             failed.append(kind)
             continue
+        record["reads_at"] = [*(saved.get("reads_at", [saved["fetched_at"]]) if saved else []),
+                              record["fetched_at"]]  # fmt: skip
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(record, indent=1) + "\n")
         print(f"{path}: read at {record['fetched_at']}")

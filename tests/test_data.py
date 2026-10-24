@@ -68,3 +68,29 @@ def test_archive_snapshots_keep_what_was_served(monkeypatch) -> None:
     monkeypatch.setattr(archive, "get_json", lambda url: {"data": periods[:10]})
     with pytest.raises(ValueError, match="only 10 half hours"):
         archive.neso_snapshot(now)
+
+
+def test_the_archive_keeps_the_read_closest_to_the_issue_time(tmp_path, monkeypatch) -> None:
+    import json
+    from datetime import UTC, datetime
+
+    from carbon_intensity_forecast import archive
+
+    def stub(now):
+        return {"fetched_at": f"{now:%Y-%m-%dT%H:%M:%SZ}", "periods": []}
+
+    for name in ["neso_snapshot", "weather_snapshot", "intensity_snapshot"]:
+        monkeypatch.setattr(archive, name, stub)
+    path = tmp_path / "neso" / "2026" / "10" / "2026-10-24.json"
+    for hour, minute in [(13, 11), (8, 30), (9, 40), (6, 0)]:  # GitHub's runs, out of order
+        archive.main(str(tmp_path), datetime(2026, 10, 24, hour, minute, tzinfo=UTC))
+    record = json.loads(path.read_text())
+    assert record["fetched_at"] == "2026-10-24T08:30:00Z"  # 30 min from 09:00; 09:40 is 40
+    assert len(record["reads_at"]) == 4
+
+
+def test_the_archive_uses_the_configured_issue_hour() -> None:
+    from carbon_intensity_forecast import archive
+    from carbon_intensity_forecast.config import load_config
+
+    assert load_config()["task"]["issue_hour_utc"] == archive.ISSUE_HOUR_UTC

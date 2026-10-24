@@ -1,0 +1,6 @@
+outs:
+- md5: 93f5b78b65dad6d81626e5d0374c4cdd.dir
+  size: 91505
+  nfiles: 3
+  hash: md5
+  path: archive

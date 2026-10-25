@@ -1,7 +1,7 @@
 {
  "source": "https://api.carbonintensity.org.uk/intensity/{now - 9 days}/{now}",
  "licence": "CC BY 4.0, National Energy System Operator (NESO)",
- "fetched_at": "2026-10-25T07:44:17Z",
+ "fetched_at": "2026-10-25T07:55:46Z",
  "periods": [
   {
    "from": "2026-10-16T07:30Z",
@@ -1733,6 +1733,7 @@
   }
  ],
  "reads_at": [
-  "2026-10-25T07:44:17Z"
+  "2026-10-25T07:44:17Z",
+  "2026-10-25T07:55:46Z"
  ]
 }

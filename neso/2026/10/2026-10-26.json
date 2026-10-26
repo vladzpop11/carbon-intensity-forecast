@@ -1,97 +1,92 @@
 {
  "source": "https://api.carbonintensity.org.uk/intensity/{now}/fw48h",
  "licence": "CC BY 4.0, National Energy System Operator (NESO)",
- "fetched_at": "2026-10-26T08:00:10Z",
+ "fetched_at": "2026-10-26T08:17:18Z",
  "periods": [
-  {
-   "from": "2026-10-26T07:30Z",
-   "to": "2026-10-26T08:00Z",
-   "forecast": 98
-  },
   {
    "from": "2026-10-26T08:00Z",
    "to": "2026-10-26T08:30Z",
-   "forecast": 99
+   "forecast": 96
   },
   {
    "from": "2026-10-26T08:30Z",
    "to": "2026-10-26T09:00Z",
-   "forecast": 100
+   "forecast": 97
   },
   {
    "from": "2026-10-26T09:00Z",
    "to": "2026-10-26T09:30Z",
-   "forecast": 102
+   "forecast": 99
   },
   {
    "from": "2026-10-26T09:30Z",
    "to": "2026-10-26T10:00Z",
-   "forecast": 99
+   "forecast": 96
   },
   {
    "from": "2026-10-26T10:00Z",
    "to": "2026-10-26T10:30Z",
-   "forecast": 97
+   "forecast": 94
   },
   {
    "from": "2026-10-26T10:30Z",
    "to": "2026-10-26T11:00Z",
-   "forecast": 90
+   "forecast": 88
   },
   {
    "from": "2026-10-26T11:00Z",
    "to": "2026-10-26T11:30Z",
-   "forecast": 91
+   "forecast": 89
   },
   {
    "from": "2026-10-26T11:30Z",
    "to": "2026-10-26T12:00Z",
-   "forecast": 86
+   "forecast": 83
   },
   {
    "from": "2026-10-26T12:00Z",
    "to": "2026-10-26T12:30Z",
-   "forecast": 82
+   "forecast": 79
   },
   {
    "from": "2026-10-26T12:30Z",
    "to": "2026-10-26T13:00Z",
-   "forecast": 75
+   "forecast": 72
   },
   {
    "from": "2026-10-26T13:00Z",
    "to": "2026-10-26T13:30Z",
-   "forecast": 73
+   "forecast": 71
   },
   {
    "from": "2026-10-26T13:30Z",
    "to": "2026-10-26T14:00Z",
-   "forecast": 68
+   "forecast": 67
   },
   {
    "from": "2026-10-26T14:00Z",
    "to": "2026-10-26T14:30Z",
-   "forecast": 67
+   "forecast": 66
   },
   {
    "from": "2026-10-26T14:30Z",
    "to": "2026-10-26T15:00Z",
-   "forecast": 65
+   "forecast": 64
   },
   {
    "from": "2026-10-26T15:00Z",
    "to": "2026-10-26T15:30Z",
-   "forecast": 66
+   "forecast": 64
   },
   {
    "from": "2026-10-26T15:30Z",
    "to": "2026-10-26T16:00Z",
-   "forecast": 67
+   "forecast": 66
   },
   {
    "from": "2026-10-26T16:00Z",
    "to": "2026-10-26T16:30Z",
-   "forecast": 68
+   "forecast": 67
   },
   {
    "from": "2026-10-26T16:30Z",
@@ -101,22 +96,22 @@
   {
    "from": "2026-10-26T17:00Z",
    "to": "2026-10-26T17:30Z",
-   "forecast": 70
+   "forecast": 69
   },
   {
    "from": "2026-10-26T17:30Z",
    "to": "2026-10-26T18:00Z",
-   "forecast": 73
+   "forecast": 71
   },
   {
    "from": "2026-10-26T18:00Z",
    "to": "2026-10-26T18:30Z",
-   "forecast": 73
+   "forecast": 72
   },
   {
    "from": "2026-10-26T18:30Z",
    "to": "2026-10-26T19:00Z",
-   "forecast": 74
+   "forecast": 73
   },
   {
    "from": "2026-10-26T19:00Z",
@@ -126,7 +121,7 @@
   {
    "from": "2026-10-26T19:30Z",
    "to": "2026-10-26T20:00Z",
-   "forecast": 71
+   "forecast": 72
   },
   {
    "from": "2026-10-26T20:00Z",
@@ -161,107 +156,107 @@
   {
    "from": "2026-10-26T23:00Z",
    "to": "2026-10-26T23:30Z",
-   "forecast": 64
+   "forecast": 65
   },
   {
    "from": "2026-10-26T23:30Z",
    "to": "2026-10-27T00:00Z",
-   "forecast": 64
+   "forecast": 65
   },
   {
    "from": "2026-10-27T00:00Z",
    "to": "2026-10-27T00:30Z",
-   "forecast": 62
+   "forecast": 64
   },
   {
    "from": "2026-10-27T00:30Z",
    "to": "2026-10-27T01:00Z",
-   "forecast": 63
+   "forecast": 64
   },
   {
    "from": "2026-10-27T01:00Z",
    "to": "2026-10-27T01:30Z",
-   "forecast": 61
+   "forecast": 63
   },
   {
    "from": "2026-10-27T01:30Z",
    "to": "2026-10-27T02:00Z",
-   "forecast": 62
+   "forecast": 63
   },
   {
    "from": "2026-10-27T02:00Z",
    "to": "2026-10-27T02:30Z",
-   "forecast": 61
+   "forecast": 62
   },
   {
    "from": "2026-10-27T02:30Z",
    "to": "2026-10-27T03:00Z",
-   "forecast": 60
+   "forecast": 62
   },
   {
    "from": "2026-10-27T03:00Z",
    "to": "2026-10-27T03:30Z",
-   "forecast": 60
+   "forecast": 61
   },
   {
    "from": "2026-10-27T03:30Z",
    "to": "2026-10-27T04:00Z",
-   "forecast": 59
+   "forecast": 61
   },
   {
    "from": "2026-10-27T04:00Z",
    "to": "2026-10-27T04:30Z",
-   "forecast": 60
+   "forecast": 61
   },
   {
    "from": "2026-10-27T04:30Z",
    "to": "2026-10-27T05:00Z",
-   "forecast": 59
+   "forecast": 61
   },
   {
    "from": "2026-10-27T05:00Z",
    "to": "2026-10-27T05:30Z",
-   "forecast": 59
+   "forecast": 61
   },
   {
    "from": "2026-10-27T05:30Z",
    "to": "2026-10-27T06:00Z",
-   "forecast": 60
+   "forecast": 62
   },
   {
    "from": "2026-10-27T06:00Z",
    "to": "2026-10-27T06:30Z",
-   "forecast": 62
+   "forecast": 64
   },
   {
    "from": "2026-10-27T06:30Z",
    "to": "2026-10-27T07:00Z",
-   "forecast": 63
+   "forecast": 65
   },
   {
    "from": "2026-10-27T07:00Z",
    "to": "2026-10-27T07:30Z",
-   "forecast": 66
+   "forecast": 67
   },
   {
    "from": "2026-10-27T07:30Z",
    "to": "2026-10-27T08:00Z",
-   "forecast": 65
+   "forecast": 66
   },
   {
    "from": "2026-10-27T08:00Z",
    "to": "2026-10-27T08:30Z",
-   "forecast": 63
+   "forecast": 64
   },
   {
    "from": "2026-10-27T08:30Z",
    "to": "2026-10-27T09:00Z",
-   "forecast": 60
+   "forecast": 61
   },
   {
    "from": "2026-10-27T09:00Z",
    "to": "2026-10-27T09:30Z",
-   "forecast": 59
+   "forecast": 60
   },
   {
    "from": "2026-10-27T09:30Z",
@@ -271,12 +266,12 @@
   {
    "from": "2026-10-27T10:00Z",
    "to": "2026-10-27T10:30Z",
-   "forecast": 53
+   "forecast": 54
   },
   {
    "from": "2026-10-27T10:30Z",
    "to": "2026-10-27T11:00Z",
-   "forecast": 53
+   "forecast": 54
   },
   {
    "from": "2026-10-27T11:00Z",
@@ -296,27 +291,27 @@
   {
    "from": "2026-10-27T12:30Z",
    "to": "2026-10-27T13:00Z",
-   "forecast": 54
+   "forecast": 55
   },
   {
    "from": "2026-10-27T13:00Z",
    "to": "2026-10-27T13:30Z",
-   "forecast": 54
+   "forecast": 55
   },
   {
    "from": "2026-10-27T13:30Z",
    "to": "2026-10-27T14:00Z",
-   "forecast": 56
+   "forecast": 57
   },
   {
    "from": "2026-10-27T14:00Z",
    "to": "2026-10-27T14:30Z",
-   "forecast": 56
+   "forecast": 57
   },
   {
    "from": "2026-10-27T14:30Z",
    "to": "2026-10-27T15:00Z",
-   "forecast": 60
+   "forecast": 59
   },
   {
    "from": "2026-10-27T15:00Z",
@@ -326,7 +321,7 @@
   {
    "from": "2026-10-27T15:30Z",
    "to": "2026-10-27T16:00Z",
-   "forecast": 66
+   "forecast": 65
   },
   {
    "from": "2026-10-27T16:00Z",
@@ -341,7 +336,7 @@
   {
    "from": "2026-10-27T17:00Z",
    "to": "2026-10-27T17:30Z",
-   "forecast": 70
+   "forecast": 71
   },
   {
    "from": "2026-10-27T17:30Z",
@@ -351,47 +346,47 @@
   {
    "from": "2026-10-27T18:00Z",
    "to": "2026-10-27T18:30Z",
-   "forecast": 73
+   "forecast": 72
   },
   {
    "from": "2026-10-27T18:30Z",
    "to": "2026-10-27T19:00Z",
-   "forecast": 73
+   "forecast": 72
   },
   {
    "from": "2026-10-27T19:00Z",
    "to": "2026-10-27T19:30Z",
-   "forecast": 71
+   "forecast": 70
   },
   {
    "from": "2026-10-27T19:30Z",
    "to": "2026-10-27T20:00Z",
-   "forecast": 67
+   "forecast": 66
   },
   {
    "from": "2026-10-27T20:00Z",
    "to": "2026-10-27T20:30Z",
-   "forecast": 68
+   "forecast": 67
   },
   {
    "from": "2026-10-27T20:30Z",
    "to": "2026-10-27T21:00Z",
-   "forecast": 69
+   "forecast": 67
   },
   {
    "from": "2026-10-27T21:00Z",
    "to": "2026-10-27T21:30Z",
-   "forecast": 62
+   "forecast": 60
   },
   {
    "from": "2026-10-27T21:30Z",
    "to": "2026-10-27T22:00Z",
-   "forecast": 62
+   "forecast": 60
   },
   {
    "from": "2026-10-27T22:00Z",
    "to": "2026-10-27T22:30Z",
-   "forecast": 58
+   "forecast": 57
   },
   {
    "from": "2026-10-27T22:30Z",
@@ -406,52 +401,52 @@
   {
    "from": "2026-10-27T23:30Z",
    "to": "2026-10-28T00:00Z",
-   "forecast": 54
+   "forecast": 55
   },
   {
    "from": "2026-10-28T00:00Z",
    "to": "2026-10-28T00:30Z",
-   "forecast": 52
+   "forecast": 54
   },
   {
    "from": "2026-10-28T00:30Z",
    "to": "2026-10-28T01:00Z",
-   "forecast": 55
+   "forecast": 56
   },
   {
    "from": "2026-10-28T01:00Z",
    "to": "2026-10-28T01:30Z",
-   "forecast": 54
+   "forecast": 56
   },
   {
    "from": "2026-10-28T01:30Z",
    "to": "2026-10-28T02:00Z",
-   "forecast": 54
+   "forecast": 56
   },
   {
    "from": "2026-10-28T02:00Z",
    "to": "2026-10-28T02:30Z",
-   "forecast": 55
+   "forecast": 56
   },
   {
    "from": "2026-10-28T02:30Z",
    "to": "2026-10-28T03:00Z",
-   "forecast": 54
+   "forecast": 56
   },
   {
    "from": "2026-10-28T03:00Z",
    "to": "2026-10-28T03:30Z",
-   "forecast": 57
+   "forecast": 58
   },
   {
    "from": "2026-10-28T03:30Z",
    "to": "2026-10-28T04:00Z",
-   "forecast": 57
+   "forecast": 58
   },
   {
    "from": "2026-10-28T04:00Z",
    "to": "2026-10-28T04:30Z",
-   "forecast": 59
+   "forecast": 60
   },
   {
    "from": "2026-10-28T04:30Z",
@@ -466,7 +461,7 @@
   {
    "from": "2026-10-28T05:30Z",
    "to": "2026-10-28T06:00Z",
-   "forecast": 60
+   "forecast": 61
   },
   {
    "from": "2026-10-28T06:00Z",
@@ -476,20 +471,21 @@
   {
    "from": "2026-10-28T06:30Z",
    "to": "2026-10-28T07:00Z",
-   "forecast": 64
+   "forecast": 65
   },
   {
    "from": "2026-10-28T07:00Z",
    "to": "2026-10-28T07:30Z",
-   "forecast": 65
+   "forecast": 66
   },
   {
    "from": "2026-10-28T07:30Z",
    "to": "2026-10-28T08:00Z",
-   "forecast": 65
+   "forecast": 66
   }
  ],
  "reads_at": [
-  "2026-10-26T08:00:10Z"
+  "2026-10-26T08:00:10Z",
+  "2026-10-26T08:17:18Z"
  ]
 }

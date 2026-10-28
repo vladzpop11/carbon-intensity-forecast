@@ -1,13 +1,8 @@
 {
  "source": "https://api.carbonintensity.org.uk/intensity/{now}/fw48h",
  "licence": "CC BY 4.0, National Energy System Operator (NESO)",
- "fetched_at": "2026-10-28T08:50:56Z",
+ "fetched_at": "2026-10-28T09:08:41Z",
  "periods": [
-  {
-   "from": "2026-10-28T08:30Z",
-   "to": "2026-10-28T09:00Z",
-   "forecast": 93
-  },
   {
    "from": "2026-10-28T09:00Z",
    "to": "2026-10-28T09:30Z",
@@ -482,9 +477,15 @@
    "from": "2026-10-30T08:00Z",
    "to": "2026-10-30T08:30Z",
    "forecast": 101
+  },
+  {
+   "from": "2026-10-30T08:30Z",
+   "to": "2026-10-30T09:00Z",
+   "forecast": 96
   }
  ],
  "reads_at": [
-  "2026-10-28T08:50:56Z"
+  "2026-10-28T08:50:56Z",
+  "2026-10-28T09:08:41Z"
  ]
 }

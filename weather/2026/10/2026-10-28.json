@@ -1,7 +1,7 @@
 {
  "source": "https://previous-runs-api.open-meteo.com/v1/forecast",
  "licence": "CC BY 4.0, Open-Meteo",
- "fetched_at": "2026-10-28T08:50:56Z",
+ "fetched_at": "2026-10-28T09:08:41Z",
  "valid_day": "2026-10-29",
  "points": {
   "scotland_north": {
@@ -5026,6 +5026,7 @@
   }
  },
  "reads_at": [
-  "2026-10-28T08:50:56Z"
+  "2026-10-28T08:50:56Z",
+  "2026-10-28T09:08:41Z"
  ]
 }
